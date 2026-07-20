@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, XCircle, Save } from 'lucide-react';
+import { CheckCircle2, XCircle, Save, Printer } from 'lucide-react';
 import { EXAM_PARTS, TOTAL_EXAM_MINUTES } from '../../data/examParts';
 import { ExamBlancResults } from '../../hooks/useExamBlanc';
 import { createSession } from '../../services/api';
@@ -107,7 +107,10 @@ const ExamBlancBilan: React.FC<Props> = ({ results, onBack }) => {
           ) : (
             <span className="status-success"><CheckCircle2 size={16} /> Bilan enregistré dans l'historique</span>
           )}
-          <button className="btn-outline-pill" onClick={onBack}>Retour au déroulé</button>
+          <button className="btn-outline-pill no-print" onClick={() => window.print()}>
+            <Printer size={16} style={{ marginRight: '8px' }} /> Exporter en PDF
+          </button>
+          <button className="btn-outline-pill no-print" onClick={onBack}>Retour au déroulé</button>
         </div>
       </div>
     </section>

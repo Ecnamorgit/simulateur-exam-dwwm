@@ -1,12 +1,24 @@
 # Simulateur d'examen blanc DWWM
 
 Application web de simulation de l'épreuve de certification du Titre Professionnel
-**Développeur Web et Web Mobile** (RNCP 37674). Elle aide un·e candidat·e à s'entraîner :
-soutenance de projet chronométrée, entretien technique interactif, analyse du dossier de
-projet, questions personnalisées et synthèse vocale des questions du jury.
+**Développeur Web et Web Mobile** (RNCP 37674). Elle reproduit le déroulé officiel de
+l'épreuve (**2 h 00**) et fournit des outils d'entraînement, avec évaluation par IA
+(et repli hors-ligne).
 
-> ⚠️ Projet en cours de mise en conformité avec le référentiel officiel.
-> Voir [`PLAN_DEVELOPPEMENT.md`](PLAN_DEVELOPPEMENT.md) pour la feuille de route.
+## Fonctionnalités
+
+- **Déroulé complet de l'épreuve (2 h)** : les 4 épreuves officielles, enchaînables en examen blanc.
+  1. **Soutenance** (35 min) — présentation chronométrée, évaluée par un jury IA (phases, score, questions personnalisées).
+  2. **Entretien technique** (40 min) — examinateur IA interactif, questions issues de la soutenance en priorité.
+  3. **Questionnaire professionnel** (30 min) — documentation technique en anglais + 2 QCU en français + 2 questions ouvertes en anglais.
+  4. **Entretien final** (15 min) — échange non technique (métier, posture, DP, motivation).
+- **Bilan d'examen blanc** : synthèse des 4 épreuves, verdict indicatif, sauvegarde et **historique** avec graphique de progression, **export PDF**.
+- **Analyse réelle du dossier de projet** : extraction PDF/DOCX/MD/TXT, grille conforme au sommaire officiel (10 rubriques + détection du résumé anglais).
+- **Authentification** (JWT + bcrypt) : chaque candidat·e retrouve ses sessions et ses **badges de compétences**.
+- **Outils de révision** : QCM technique par domaine, banque de questions du jury, fiches OWASP, backlog agile (Kanban).
+- **Synthèse vocale** des questions du jury (edge-tts) + reconnaissance vocale (Web Speech, avec repli clavier).
+
+> Feuille de route : [`PLAN_DEVELOPPEMENT.md`](PLAN_DEVELOPPEMENT.md).
 
 ---
 
@@ -14,73 +26,70 @@ projet, questions personnalisées et synthèse vocale des questions du jury.
 
 | Côté | Technologies |
 |---|---|
-| **Backend** | Python 3.12, FastAPI, SQLAlchemy 2 (async) + aiosqlite, edge-tts |
-| **Frontend** | React 18, TypeScript, Vite, React Router, lucide-react |
-| **IA** | API Google Gemini (avec fallback Ollama puis banque de questions locale) |
-| **Base de données** | SQLite (local, via `aiosqlite`) |
+| **Backend** | Python 3.12, FastAPI, SQLAlchemy 2 (async) + aiosqlite, JWT (python-jose), bcrypt (passlib), slowapi, pypdf, python-docx, edge-tts |
+| **Frontend** | React 18, TypeScript, Vite, lucide-react |
+| **IA** | API Google Gemini (repli Ollama, puis banque locale / questionnaires statiques) |
+| **Base de données** | SQLite (async via `aiosqlite`) |
+| **Tests** | pytest (+ couverture) côté back, Vitest + Testing Library côté front |
+| **Déploiement** | Docker / Docker Compose, GitHub Actions (CI) |
 
 ---
 
-## Prérequis
+## Démarrage rapide (Docker)
 
-- **Python** ≥ 3.10 (développé sous 3.12)
-- **Node.js** ≥ 18 et **npm**
-- Une **clé API Google Gemini** (gratuite) : https://aistudio.google.com/apikey
-
----
-
-## Installation
-
-### 1. Backend
+Prérequis : **Docker Desktop** démarré.
 
 ```bash
-cd backend
+export GEMINI_API_KEY="votre_cle"     # optionnel (PowerShell : $env:GEMINI_API_KEY="...")
+docker compose up --build
+```
 
-# Créer et activer un environnement virtuel
+- Application : http://localhost:3000 — API/Swagger : http://localhost:8000/docs
+
+Détails et variables d'environnement : [`docs/deploiement.md`](docs/deploiement.md).
+
+---
+
+## Installation manuelle
+
+### Prérequis
+- **Python** ≥ 3.10 (développé sous 3.12), **Node.js** ≥ 18 et **npm**
+- (Optionnel) une **clé API Google Gemini** : https://aistudio.google.com/apikey — sans clé valide, l'app bascule sur les repli hors-ligne.
+
+### Backend
+```bash
+cd backend
 python -m venv venv
-# Windows (PowerShell)
-venv\Scripts\Activate.ps1
-# macOS / Linux
-source venv/bin/activate
-
-# Installer les dépendances
+venv\Scripts\Activate.ps1        # macOS/Linux : source venv/bin/activate
 pip install -r requirements.txt
-
-# Configurer les variables d'environnement
-cp .env.example .env      # (Windows : copy .env.example .env)
-# puis éditer .env et renseigner GEMINI_API_KEY
-```
-
-### 2. Frontend
-
-```bash
-cd frontend
-npm install
-```
-
----
-
-## Lancement
-
-Ouvrez **deux terminaux**.
-
-**Terminal 1 — backend** (port 8000) :
-```bash
-cd backend
-venv\Scripts\Activate.ps1        # ou : source venv/bin/activate
+cp .env.example .env             # Windows : copy .env.example .env
+# éditer .env : GEMINI_API_KEY, JWT_SECRET
 uvicorn app.main:app --reload --port 8000
 ```
 
-**Terminal 2 — frontend** (port 3000) :
+### Frontend
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
-Puis ouvrez **http://localhost:3000**.
-Le frontend proxifie automatiquement les appels `/api` vers le backend (`http://127.0.0.1:8000`).
+Ouvrez **http://localhost:3000** (les appels `/api` sont proxifiés vers le backend).
 
-- Documentation interactive de l'API (Swagger) : **http://localhost:8000/docs**
+---
+
+## Tests
+
+```bash
+# Backend (couverture ≥ 60 %)
+cd backend && ../venv/Scripts/python.exe -m pytest -q --cov=app --cov-report=term
+# (avec un venv activé : pip install -r requirements-dev.txt puis pytest)
+
+# Frontend
+cd frontend && npm run test
+```
+
+Jeu d'essai documenté : [`docs/jeu_essai.md`](docs/jeu_essai.md).
 
 ---
 
@@ -90,32 +99,29 @@ Le frontend proxifie automatiquement les appels `/api` vers le backend (`http://
 .
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                 # Point d'entrée FastAPI, CORS, montage des routes
-│   │   ├── api/routes/
-│   │   │   └── certification.py    # Tous les endpoints (/api/...)
-│   │   ├── db/
-│   │   │   └── sqlite.py           # Moteur SQLAlchemy async + modèles + init
-│   │   └── services/
-│   │       ├── oral_evaluator.py       # Évaluation soutenance/oral via Gemini
-│   │       ├── question_generator.py   # Génération de questions personnalisées
-│   │       ├── tts_service.py          # Synthèse vocale (edge-tts)
-│   │       └── speech_fallback.py      # Fallback transcription
-│   ├── requirements.txt
-│   └── .env.example                # Modèle de configuration (à copier en .env)
-│
-└── frontend/
-    ├── src/
-    │   ├── index.tsx               # Bootstrap React
-    │   ├── App.tsx                 # Routes de l'application
-    │   ├── pages/
-    │   │   └── CertificationSimulator.tsx   # Écran principal du simulateur
-    │   ├── components/             # NavBar, Separator, ...
-    │   ├── hooks/
-    │   │   └── useSpeechRecognition.ts      # Reconnaissance vocale (Web Speech API)
-    │   └── data/
-    │       └── dwwmQuestions.ts    # Banque de questions locale
-    ├── vite.config.ts              # Config Vite + proxy /api
-    └── package.json
+│   │   ├── main.py                 # FastAPI, CORS, rate limiting, montage des routes
+│   │   ├── core/                   # config (pydantic-settings), security (JWT/bcrypt), rate_limit
+│   │   ├── api/routes/             # certification, auth, badges
+│   │   ├── db/sqlite.py            # moteur async + modèles (User, ExamSession, Badge, ...)
+│   │   └── services/               # oral_evaluator, question_generator, document_parser,
+│   │       │                       #   dossier_checker, questionnaire_generator, entretien_final, tts_service
+│   ├── tests/                      # pytest (+ fixtures)
+│   ├── Dockerfile
+│   └── requirements*.txt
+├── frontend/
+│   ├── src/
+│   │   ├── pages/CertificationSimulator.tsx   # orchestrateur (~290 lignes)
+│   │   ├── components/exam/         # OralTab/JuryMode, QcmTab, InteractiveExaminer, ExamOverview,
+│   │   │                            #   EntretienTechnique, QuestionnairePro, EntretienFinal, ExamBlancBilan, AuthBar, ...
+│   │   ├── hooks/                   # useExamTimer, useTts, useQcm, useDossier, useSoutenance,
+│   │   │                            #   useInteractiveExam, useQuestionnaire, useEntretienFinal, useExamBlanc, useAuth
+│   │   ├── services/api.ts          # tous les appels réseau centralisés
+│   │   └── data/, types/
+│   ├── Dockerfile + nginx.conf
+│   └── vite.config.ts
+├── docs/                           # mcd_mld.md, jeu_essai.md, deploiement.md
+├── docker-compose.yml
+└── .github/workflows/ci.yml
 ```
 
 ---
@@ -124,19 +130,29 @@ Le frontend proxifie automatiquement les appels `/api` vers le backend (`http://
 
 | Méthode | Route | Rôle |
 |---|---|---|
-| `POST` | `/upload` | Envoi et analyse du dossier de projet |
-| `POST` | `/sessions` | Créer une session d'examen |
-| `GET`  | `/sessions` | Lister les sessions |
-| `GET`  | `/sessions/{id}/questions` | Questions d'une session |
-| `POST` | `/oral-evaluate` | Évaluer une réponse orale |
-| `GET`  | `/oral-config` | Configuration de l'oral |
-| `POST` | `/soutenance-evaluate` | Évaluer une phase de soutenance |
-| `GET`  | `/tts` | Synthèse vocale d'un texte |
+| `POST` | `/auth/register`, `/auth/login` | Inscription / connexion (JWT) |
+| `POST` | `/certification/upload` | Analyse réelle du dossier de projet |
+| `POST` | `/certification/oral-evaluate` | Évaluer une réponse orale |
+| `POST` | `/certification/soutenance-evaluate` | Évaluer la soutenance (35 min) |
+| `GET`  | `/certification/questionnaire` | Questionnaire pro (doc EN + QCU + ouvertes) |
+| `POST` | `/certification/questionnaire-evaluate` | Corriger le questionnaire |
+| `GET`  | `/certification/entretien-final-questions` | Questions de l'entretien final |
+| `POST` | `/certification/entretien-final-evaluate` | Évaluer l'entretien final |
+| `GET`/`POST` | `/certification/sessions` | Historique / sauvegarde (**authentifié**) |
+| `GET`  | `/badges`, `/badges/me` | Badges de compétences (relation N:N) |
+| `GET`  | `/certification/tts` | Synthèse vocale |
+
+Documentation complète et interactive : **http://localhost:8000/docs**.
 
 ---
 
 ## Sécurité
 
-- Ne commitez **jamais** votre fichier `.env` : il est ignoré par Git (`.gitignore`).
-- En cas de fuite de la clé Gemini, révoquez-la immédiatement sur
-  https://aistudio.google.com/apikey et générez-en une nouvelle.
+- Ne commitez **jamais** votre fichier `.env` (ignoré par `.gitignore`).
+- Changez `JWT_SECRET` en production.
+- En cas de fuite de la clé Gemini, révoquez-la sur https://aistudio.google.com/apikey.
+- Mots de passe **hachés bcrypt** ; endpoints sensibles protégés par JWT et rate limiting.
+
+## Modèle de données
+
+MCD / MLD (Mermaid + DBML) et contraintes d'intégrité : [`docs/mcd_mld.md`](docs/mcd_mld.md).

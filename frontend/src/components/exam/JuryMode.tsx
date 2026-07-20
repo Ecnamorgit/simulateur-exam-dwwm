@@ -115,6 +115,7 @@ const JuryMode: React.FC<Props> = (p) => {
               </div>
               <textarea
                 className="open-answer-input"
+                aria-label="Texte de votre présentation"
                 placeholder="Saisissez le texte de votre présentation ici..."
                 value={p.manualTranscript}
                 onChange={(e) => p.setManualTranscript(e.target.value)}

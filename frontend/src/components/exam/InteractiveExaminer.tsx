@@ -141,6 +141,7 @@ const InteractiveExaminer: React.FC<Props> = ({
               <input
                 type="text"
                 className="chat-text-input"
+                aria-label="Votre réponse"
                 placeholder={isListening ? 'En écoute... parlez' : 'Tapez votre réponse ou utilisez le micro...'}
                 value={isListening ? transcript : candidateInput}
                 onChange={(e) => !isListening && setCandidateInput(e.target.value)}
