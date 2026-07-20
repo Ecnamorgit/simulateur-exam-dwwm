@@ -5,6 +5,7 @@ from app.db.sqlite import get_db, ExamSession, CriteriaResult, GeneratedQuestion
 from app.services.speech_fallback import transcribe_audio_fallback
 from app.services.question_generator import generate_questions_from_text
 from app.services.document_parser import extract_text
+from app.services.dossier_checker import analyze_dossier
 from app.services.oral_evaluator import evaluate_oral_answer, evaluate_soutenance
 from app.services.tts_service import generate_speech, DEFAULT_VOICE
 from app.core.config import settings
@@ -143,24 +144,11 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
     if not techs:
         techs = ["React", "FastAPI", "SQLite", "Bcrypt", "JWT", "CORS"]
 
-    # Basic compliance check
-    has_mcd = any(x in filename or x in decoded_content for x in ["mcd", "mld", "sql", "diagram", "db", "bdd"])
-    has_rgpd = any(x in filename or x in decoded_content for x in ["rgpd", "gdpr", "privacy", "dcp", "cnil"])
-    has_veille = any(x in filename or x in decoded_content for x in ["veille", "owasp", "securit", "vulnerab"])
-    has_tests = any(x in filename or x in decoded_content for x in ["test", "unit", "cypress", "jest", "pytest"])
-
-    score_calc = 60
-    if has_mcd: score_calc += 10
-    if has_rgpd: score_calc += 10
-    if has_veille: score_calc += 10
-    if has_tests: score_calc += 10
-
-    criteria_data = [
-        {"name": "Modélisation des données (MCD/MLD)", "checked": has_mcd, "feedback": "Section MCD/MLD présente et validée." if has_mcd else "Schémas de base de données (MCD/MLD) manquants."},
-        {"name": "Conformité RGPD & CNIL", "checked": has_rgpd, "feedback": "Mentions légales et traitement des DCP conformes." if has_rgpd else "Absence de détails sur la mise en conformité RGPD."},
-        {"name": "Veille technologique et OWASP", "checked": has_veille, "feedback": "Veille sur les failles de sécurité bien documentée." if has_veille else "Mesures de protection OWASP non mentionnées."},
-        {"name": "Tests et intégration continue", "checked": has_tests, "feedback": "Tests unitaires et E2E correctement planifiés." if has_tests else "Plan de test et d'intégration continue manquant."},
-    ]
+    # Analyse du dossier selon le sommaire officiel du référentiel
+    # (10 rubriques + détection du résumé en anglais obligatoire).
+    analysis = analyze_dossier(extracted_text)
+    score_calc = analysis["score"]
+    criteria_data = analysis["criteria"]
 
     # Save the practice session
     session = ExamSession(
