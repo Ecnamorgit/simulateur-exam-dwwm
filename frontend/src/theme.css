@@ -1,0 +1,107 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap');
+
+/* Variables CSS */
+:root {
+  --color-ink-black: #000000;
+  --color-charcoal: #18191b;
+  --color-slate-mid: #6a6a6c;
+  --color-steel: #7d7f80;
+  --color-ash: #acadae;
+  --gradient-ash: linear-gradient(90deg, rgb(172, 173, 174) 0%, rgb(172, 173, 174) 30%, rgb(109, 192, 120) 35%, rgb(153, 183, 250) 40%, rgb(172, 173, 174) 45%, rgb(172, 173, 174) 100%);
+  --color-fog: #bbbbbb;
+  --color-mist: #c4c4c4;
+  --color-pebble: #dbdbdb;
+  --color-cloud: #f2f2f2;
+  --color-snow: #f9f9f9;
+  --color-paper: #ffffff;
+  --color-fern: #448f52;
+  --color-mint-wash: #dbeddf;
+  
+  --font-inter: 'Inter', sans-serif;
+  --font-instrument-serif: 'Instrument Serif', Georgia, serif;
+  --font-instrument-sans: 'Instrument Sans', sans-serif;
+  
+  --text-caption: 12px;
+  --text-body: 14px;
+  --text-heading-sm: 18px;
+  --text-heading: 24px;
+  --text-heading-lg: 29px;
+  --text-display: 42px;
+  
+  --radius-cards: 20px;
+  --radius-images: 20px;
+  --radius-inputs: 20px;
+  --radius-small: 8px;
+  --radius-buttons: 9999px;
+  
+  --shadow-md: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.1) 0px 4px 6px -4px;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-backdrop: blur(12px);
+}
+
+/* Reset minimaliste */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--color-paper);
+  font-family: var(--font-inter);
+  color: var(--color-charcoal);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.2s ease;
+}
+
+a:hover {
+  opacity: 0.8;
+}
+
+/* Base utility classes */
+.card-soft {
+  background-color: var(--color-snow);
+  border: 1px solid var(--color-mist);
+  border-radius: var(--radius-cards);
+  box-shadow: var(--shadow-md);
+  padding: 24px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-soft:hover {
+  transform: translateY(-2px);
+  box-shadow: rgba(0, 0, 0, 0.12) 0px 12px 20px -3px;
+}
+
+.btn-dark-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-charcoal);
+  color: var(--color-paper);
+  border: none;
+  border-radius: var(--radius-buttons);
+  padding: 10px 20px;
+  font-family: var(--font-inter);
+  font-size: var(--text-body);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn-dark-pill:hover {
+  background-color: var(--color-ink-black);
+}
+
+.btn-dark-pill:active {
+  transform: scale(0.98);
+}

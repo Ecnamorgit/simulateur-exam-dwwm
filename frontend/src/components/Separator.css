@@ -1,0 +1,16 @@
+.shimmer-divider {
+  height: 2px;
+  background: var(--gradient-ash);
+  background-size: 200% 100%;
+  animation: shimmer-anim 4s infinite linear;
+  border-radius: var(--radius-small);
+}
+
+@keyframes shimmer-anim {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
