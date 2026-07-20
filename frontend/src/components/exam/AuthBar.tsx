@@ -32,11 +32,11 @@ const AuthBar: React.FC<Props> = ({ auth }) => {
   return (
     <form className="auth-bar" onSubmit={submit}>
       <input
-        className="auth-input" type="email" placeholder="Email" required
+        className="auth-input" type="email" placeholder="Email" required aria-label="Adresse email"
         value={email} onChange={(e) => setEmail(e.target.value)}
       />
       <input
-        className="auth-input" type="password" placeholder="Mot de passe (8+ car.)" required
+        className="auth-input" type="password" placeholder="Mot de passe (8+ car.)" required aria-label="Mot de passe"
         value={password} onChange={(e) => setPassword(e.target.value)}
       />
       <button className="btn-dark-pill auth-btn" type="submit" disabled={auth.busy}>

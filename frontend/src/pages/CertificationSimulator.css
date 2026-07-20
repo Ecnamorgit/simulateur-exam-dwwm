@@ -1760,3 +1760,14 @@
   font-weight: 600;
   font-size: 13px;
 }
+
+/* ── Impression / export PDF du bilan (Phase 6) ── */
+@media print {
+  .hero-section,
+  .tab-navigation,
+  .no-print {
+    display: none !important;
+  }
+  .simulator-page { padding: 0 !important; }
+  .card-soft { box-shadow: none !important; border: 1px solid #ddd; }
+}

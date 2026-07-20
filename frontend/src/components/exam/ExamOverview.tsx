@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Play, Clock, History, Award } from 'lucide-react';
 import { EXAM_PARTS, TOTAL_EXAM_MINUTES, ExamPartId } from '../../data/examParts';
 import { getSessions, getMyBadges } from '../../services/api';
+import ProgressChart from './ProgressChart';
 
 interface Props {
   onStartPart: (id: ExamPartId) => void;
@@ -73,6 +74,7 @@ const ExamOverview: React.FC<Props> = ({ onStartPart, onStartExamBlanc, authKey 
     {history.length > 0 && (
       <div className="card-soft" style={{ maxWidth: '820px', margin: '24px auto 0' }}>
         <h4 className="report-section-title"><History size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Historique des examens blancs</h4>
+        <ProgressChart points={[...history].reverse().map((s) => ({ date: s.date, score: s.score }))} />
         <div className="report-phases-list">
           {history.map((s) => (
             <div key={s.id} className="report-phase-row valid">

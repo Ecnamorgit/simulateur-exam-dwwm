@@ -116,6 +116,7 @@ const EntretienFinal: React.FC<Props> = ({ speak, onBack, onComplete }) => {
                   <input
                     type="text"
                     className="chat-text-input"
+                    aria-label="Votre réponse"
                     placeholder="Votre réponse..."
                     value={ef.input}
                     onChange={(e) => ef.setInput(e.target.value)}

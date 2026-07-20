@@ -109,6 +109,7 @@ const QuestionnairePro: React.FC<Props> = ({ stack = '', onBack, onComplete }) =
               <div className="qcm-question-text"><span className="qcm-number">Open {i + 1}.</span> {oq.question}</div>
               <textarea
                 className="open-answer-input"
+                aria-label={`Réponse à la question ouverte ${i + 1}`}
                 placeholder="Write your answer in English..."
                 value={q.openAnswers[i] || ''}
                 onChange={(e) => q.setOpenAnswer(i, e.target.value)}
