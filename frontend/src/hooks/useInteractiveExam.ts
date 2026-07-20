@@ -129,9 +129,23 @@ export function useInteractiveExam({ questions, speak, transcript, clearTranscri
     }
   }, [candidateInput, transcript, interactiveQuestionIdx, interactiveJuryQuestions, isEvaluating, interactiveContext, interactiveScore, interactiveTotal, speak, clearTranscript]);
 
+  // Clôture forcée de la session (ex. quand le temps imparti est écoulé).
+  const finishSession = useCallback(() => {
+    if (sessionComplete) return;
+    setSessionComplete(true);
+    const avg = interactiveTotal > 0 ? (interactiveScore / interactiveTotal).toFixed(1) : '0';
+    const endMsg: ChatMessage = {
+      role: 'examiner',
+      text: `Le temps imparti est écoulé. L'entretien technique est terminé. Votre score moyen est de ${avg}/10.`,
+    };
+    setChatMessages((prev) => [...prev, endMsg]);
+    speak(endMsg.text);
+  }, [sessionComplete, interactiveScore, interactiveTotal, speak]);
+
   return {
     interactiveStarted,
     chatMessages,
+    finishSession,
     interactiveQuestionIdx,
     interactiveScore,
     interactiveTotal,
