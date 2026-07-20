@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app.db.sqlite import get_db, ExamSession, CriteriaResult, GeneratedQuestion
 from app.services.speech_fallback import transcribe_audio_fallback
 from app.services.question_generator import generate_questions_from_text
+from app.services.document_parser import extract_text
 from app.services.oral_evaluator import evaluate_oral_answer, evaluate_soutenance
 from app.services.tts_service import generate_speech, DEFAULT_VOICE
 from app.core.config import settings
@@ -115,7 +116,7 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
             detail=f"Type de fichier non supporté ({ext or 'inconnu'}). Extensions autorisées : {allowed}.",
         )
 
-    # Read binary file content to scan for key technologies
+    # Read binary file content
     contents = await file.read()
 
     # Limite de taille -> 413 Payload Too Large
@@ -124,11 +125,11 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
             status_code=413,
             detail=f"Fichier trop volumineux (maximum {settings.MAX_UPLOAD_SIZE_MB} Mo).",
         )
-    try:
-        decoded_content = contents.decode("utf-8", errors="ignore").lower()
-    except Exception:
-        decoded_content = ""
-        
+
+    # Extraction réelle du texte (PDF/DOCX/MD/TXT) au lieu d'un décodage brut.
+    extracted_text = extract_text(file.filename or "", contents)
+    decoded_content = extracted_text.lower()
+
     # Heuristics scanning for keywords
     techs = []
     for tech in ["react", "vue", "angular", "typescript", "javascript", "html", "css", "tailwind",

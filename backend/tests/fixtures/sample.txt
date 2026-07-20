@@ -1,0 +1,1 @@
+Dossier de projet DWWM. Stack: React, FastAPI, SQLite. Marqueur: TXTOK.
