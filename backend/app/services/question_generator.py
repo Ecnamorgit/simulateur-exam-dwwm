@@ -1,8 +1,9 @@
 import json
-import urllib.request
-import urllib.error
-import asyncio
-import re
+
+import httpx
+
+# Timeout large pour laisser le temps au modèle local de générer 10 questions.
+_OLLAMA_TIMEOUT = httpx.Timeout(45.0, connect=10.0)
 
 # ---------------------------------------------------------------------------
 # Fallback questions when generator fails or Ollama is offline
@@ -483,7 +484,7 @@ DEFAULT_QUESTIONS = [
 ]
 
 
-def _call_ollama(text: str) -> list:
+async def _call_ollama(text: str) -> list:
     url = "http://localhost:11434/api/chat"
     model = "qwen2.5-coder:14b"
 
@@ -515,19 +516,13 @@ def _call_ollama(text: str) -> list:
         "stream": False
     }
 
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(data).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
-
     try:
-        # Timeout at 45 seconds to allow larger model responses
-        with urllib.request.urlopen(req, timeout=45) as response:
-            res_data = json.loads(response.read().decode("utf-8"))
-            content = res_data["message"]["content"].strip()
-            return _parse_questions(content)
+        async with httpx.AsyncClient(timeout=_OLLAMA_TIMEOUT) as client:
+            response = await client.post(url, json=data)
+            response.raise_for_status()
+            res_data = response.json()
+        content = res_data["message"]["content"].strip()
+        return _parse_questions(content)
     except Exception as e:
         print(f"Error generating questions via local Ollama: {e}")
         # Return default fallback questions
@@ -567,5 +562,4 @@ def _parse_questions(content: str) -> list:
 
 
 async def generate_questions_from_text(text: str) -> list[dict]:
-    # Run blockable HTTP request in a thread pool to preserve asynchronous runtime
-    return await asyncio.to_thread(_call_ollama, text)
+    return await _call_ollama(text)
