@@ -1598,3 +1598,58 @@
 
 
 
+
+/* ── Déroulé de l'épreuve (Phase 3.1) ── */
+.exam-parts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 820px;
+  margin: 24px auto 0;
+}
+.exam-part-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  text-align: left;
+}
+.exam-part-order {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-charcoal, #2a2a28);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+}
+.exam-part-body { flex: 1; }
+.exam-part-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.exam-part-icon { font-size: 22px; }
+.exam-part-title { margin: 0; font-size: 17px; font-weight: 600; }
+.exam-part-duration {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-fern, #4a7c59);
+  background: rgba(74, 124, 89, 0.12);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.exam-part-desc {
+  margin: 0 0 12px;
+  color: var(--color-charcoal, #444);
+  font-size: 14px;
+  line-height: 1.5;
+}

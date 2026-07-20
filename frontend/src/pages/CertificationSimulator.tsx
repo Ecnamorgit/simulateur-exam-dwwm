@@ -17,9 +17,13 @@ import InteractiveExaminer from '../components/exam/InteractiveExaminer';
 import DossierChecker from '../components/exam/DossierChecker';
 import KanbanBoard from '../components/exam/KanbanBoard';
 import OwaspTab from '../components/exam/OwaspTab';
+import ExamOverview from '../components/exam/ExamOverview';
+import { ExamPartId } from '../data/examParts';
+
+type TabId = 'epreuve' | 'oral' | 'dossier' | 'agile' | 'owasp' | 'entretien-technique' | 'questionnaire' | 'entretien-final';
 
 const CertificationSimulator: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'oral' | 'dossier' | 'agile' | 'owasp'>('oral');
+  const [activeTab, setActiveTab] = useState<TabId>('epreuve');
   const [simulationMode, setSimulationMode] = useState<'jury' | 'qcm' | 'interactive'>('jury');
   const [questions, setQuestions] = useState<Question[]>(DWWM_QUESTIONS);
   const [tasks, setTasks] = useState<Task[]>([
@@ -57,6 +61,15 @@ const CertificationSimulator: React.FC = () => {
     );
   };
 
+  const startExamPart = (id: ExamPartId) => {
+    if (id === 'soutenance') {
+      setActiveTab('oral');
+      setSimulationMode('jury');
+    } else {
+      setActiveTab(id);
+    }
+  };
+
   // Derived question sets and scores
   const filteredQuestions = qcm.selectedCategory === 'Toutes'
     ? questions
@@ -80,6 +93,9 @@ const CertificationSimulator: React.FC = () => {
       {/* Navigation tabs */}
       <div className="tab-navigation">
         <div className="tab-pill">
+          <button className={`tab-link ${activeTab === 'epreuve' ? 'active' : ''}`} onClick={() => setActiveTab('epreuve')}>
+            Déroulé de l'épreuve
+          </button>
           <button className={`tab-link ${activeTab === 'oral' ? 'active' : ''}`} onClick={() => setActiveTab('oral')}>
             Simulateur d'Oral & QCM
           </button>
@@ -96,6 +112,11 @@ const CertificationSimulator: React.FC = () => {
       </div>
 
       <Separator width="300px" margin="32px auto" />
+
+      {/* Déroulé de l'épreuve (page d'accueil) */}
+      {activeTab === 'epreuve' && (
+        <ExamOverview onStartPart={startExamPart} onStartExamBlanc={() => startExamPart('soutenance')} />
+      )}
 
       {/* Oral & QCM tab */}
       {activeTab === 'oral' && (
@@ -202,6 +223,16 @@ const CertificationSimulator: React.FC = () => {
       {activeTab === 'agile' && <KanbanBoard tasks={tasks} moveTask={moveTask} />}
 
       {activeTab === 'owasp' && <OwaspTab />}
+
+      {(activeTab === 'entretien-technique' || activeTab === 'questionnaire' || activeTab === 'entretien-final') && (
+        <section className="tab-content fade-in">
+          <div className="card-soft page-intro-card">
+            <h3 className="card-title">Épreuve en cours de préparation</h3>
+            <p className="card-subtitle">Cette épreuve sera bientôt disponible dans le simulateur.</p>
+            <button className="btn-outline-pill" onClick={() => setActiveTab('epreuve')}>← Retour au déroulé</button>
+          </div>
+        </section>
+      )}
     </div>
   );
 };
