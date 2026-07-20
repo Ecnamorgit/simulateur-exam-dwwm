@@ -111,6 +111,13 @@ export async function getSessions(): Promise<any[]> {
   return res.json();
 }
 
+/** Récupère les badges de compétences obtenus par l'utilisateur connecté. */
+export async function getMyBadges(): Promise<any[]> {
+  const res = await fetch(`/api/badges/me`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Impossible de charger les badges.');
+  return res.json();
+}
+
 /** URL de synthèse vocale (TTS) pour un texte donné. */
 export function ttsUrl(text: string): string {
   return `${BASE}/tts?text=${encodeURIComponent(text)}`;
