@@ -10,19 +10,23 @@ returns a score, detected/missing keywords, feedback, and follow-up question.
 """
 
 import json
-import urllib.request
-import urllib.error
-import asyncio
 import re
 
+import httpx
+
 from app.core.config import settings
+
+# Timeouts (en secondes) : connexion courte, lecture plus longue pour laisser
+# le temps au LLM de générer sa réponse.
+_GEMINI_TIMEOUT = httpx.Timeout(45.0, connect=10.0)
+_OLLAMA_TIMEOUT = httpx.Timeout(60.0, connect=10.0)
 
 
 # ---------------------------------------------------------------------------
 # Gemini provider
 # ---------------------------------------------------------------------------
 
-def _call_gemini(question: str, user_answer: str, context: list[dict] | None = None) -> dict:
+async def _call_gemini(question: str, user_answer: str, context: list[dict] | None = None) -> dict:
     """Call Google Gemini API to evaluate an oral answer."""
     api_key = settings.GEMINI_API_KEY
     if not api_key:
@@ -78,24 +82,23 @@ def _call_gemini(question: str, user_answer: str, context: list[dict] | None = N
         }
     }
 
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(data).encode("utf-8"),
-        headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
-        method="POST"
-    )
-
-    with urllib.request.urlopen(req, timeout=30) as response:
-        res_data = json.loads(response.read().decode("utf-8"))
-        content = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        return _parse_evaluation(content)
+    async with httpx.AsyncClient(timeout=_GEMINI_TIMEOUT) as client:
+        response = await client.post(
+            url,
+            json=data,
+            headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
+        )
+        response.raise_for_status()
+        res_data = response.json()
+    content = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    return _parse_evaluation(content)
 
 
 # ---------------------------------------------------------------------------
 # Ollama provider (local fallback)
 # ---------------------------------------------------------------------------
 
-def _call_ollama_eval(question: str, user_answer: str, context: list[dict] | None = None) -> dict:
+async def _call_ollama_eval(question: str, user_answer: str, context: list[dict] | None = None) -> dict:
     """Call local Ollama to evaluate an oral answer."""
     url = "http://localhost:11434/api/chat"
     model = "qwen2.5-coder:14b"
@@ -128,17 +131,12 @@ def _call_ollama_eval(question: str, user_answer: str, context: list[dict] | Non
         "stream": False
     }
 
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(data).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
-
-    with urllib.request.urlopen(req, timeout=60) as response:
-        res_data = json.loads(response.read().decode("utf-8"))
-        content = res_data["message"]["content"].strip()
-        return _parse_evaluation(content)
+    async with httpx.AsyncClient(timeout=_OLLAMA_TIMEOUT) as client:
+        response = await client.post(url, json=data)
+        response.raise_for_status()
+        res_data = response.json()
+    content = res_data["message"]["content"].strip()
+    return _parse_evaluation(content)
 
 
 # ---------------------------------------------------------------------------
@@ -226,7 +224,7 @@ async def evaluate_oral_answer(
     """
     if provider == "gemini" or provider == "auto":
         try:
-            return await asyncio.to_thread(_call_gemini, question, user_answer, context)
+            return await _call_gemini(question, user_answer, context)
         except Exception as e:
             print(f"[oral_evaluator] Gemini failed: {e}")
             if provider == "gemini":
@@ -234,7 +232,7 @@ async def evaluate_oral_answer(
 
     if provider == "ollama" or provider == "auto":
         try:
-            return await asyncio.to_thread(_call_ollama_eval, question, user_answer, context)
+            return await _call_ollama_eval(question, user_answer, context)
         except Exception as e:
             print(f"[oral_evaluator] Ollama failed: {e}")
 
@@ -246,7 +244,7 @@ async def evaluate_oral_answer(
 # Full Soutenance (35 min presentation) Evaluation
 # ---------------------------------------------------------------------------
 
-def _call_gemini_soutenance(transcript: str, dossier_text: str = "", duration_seconds: int = 0) -> dict:
+async def _call_gemini_soutenance(transcript: str, dossier_text: str = "", duration_seconds: int = 0) -> dict:
     api_key = settings.GEMINI_API_KEY
     if not api_key:
         raise ValueError("GEMINI_API_KEY not set")
@@ -295,15 +293,19 @@ def _call_gemini_soutenance(transcript: str, dossier_text: str = "", duration_se
         "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048}
     }
 
-    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={"Content-Type": "application/json", "x-goog-api-key": api_key}, method="POST")
+    async with httpx.AsyncClient(timeout=_GEMINI_TIMEOUT) as client:
+        response = await client.post(
+            url,
+            json=data,
+            headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
+        )
+        response.raise_for_status()
+        res_data = response.json()
+    content = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    return _parse_soutenance_json(content)
 
-    with urllib.request.urlopen(req, timeout=45) as response:
-        res_data = json.loads(response.read().decode("utf-8"))
-        content = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        return _parse_soutenance_json(content)
 
-
-def _call_ollama_soutenance(transcript: str, dossier_text: str = "", duration_seconds: int = 0) -> dict:
+async def _call_ollama_soutenance(transcript: str, dossier_text: str = "", duration_seconds: int = 0) -> dict:
     url = "http://localhost:11434/api/chat"
     model = "qwen2.5-coder:14b"
 
@@ -323,12 +325,12 @@ def _call_ollama_soutenance(transcript: str, dossier_text: str = "", duration_se
         "stream": False
     }
 
-    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
-
-    with urllib.request.urlopen(req, timeout=60) as response:
-        res_data = json.loads(response.read().decode("utf-8"))
-        content = res_data["message"]["content"].strip()
-        return _parse_soutenance_json(content)
+    async with httpx.AsyncClient(timeout=_OLLAMA_TIMEOUT) as client:
+        response = await client.post(url, json=data)
+        response.raise_for_status()
+        res_data = response.json()
+    content = res_data["message"]["content"].strip()
+    return _parse_soutenance_json(content)
 
 
 def _parse_soutenance_json(content: str) -> dict:
@@ -405,13 +407,13 @@ async def evaluate_soutenance(
 ) -> dict:
     if provider == "gemini" or provider == "auto":
         try:
-            return await asyncio.to_thread(_call_gemini_soutenance, transcript, dossier_text, duration_seconds)
+            return await _call_gemini_soutenance(transcript, dossier_text, duration_seconds)
         except Exception as e:
             print(f"[oral_evaluator] Gemini soutenance failed: {e}")
 
     if provider == "ollama" or provider == "auto":
         try:
-            return await asyncio.to_thread(_call_ollama_soutenance, transcript, dossier_text, duration_seconds)
+            return await _call_ollama_soutenance(transcript, dossier_text, duration_seconds)
         except Exception as e:
             print(f"[oral_evaluator] Ollama soutenance failed: {e}")
 
