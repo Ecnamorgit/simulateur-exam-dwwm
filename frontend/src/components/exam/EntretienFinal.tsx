@@ -6,15 +6,17 @@ import { useExamTimer, formatTime } from '../../hooks/useExamTimer';
 interface Props {
   speak: (text: string) => void;
   onBack: () => void;
+  onComplete?: (score: number) => void;
 }
 
 const DURATION = 15 * 60;
 
 /** Épreuve « Entretien final » (15 min) : échange non technique sur le profil pro. */
-const EntretienFinal: React.FC<Props> = ({ speak, onBack }) => {
+const EntretienFinal: React.FC<Props> = ({ speak, onBack, onComplete }) => {
   const ef = useEntretienFinal(speak);
   const timer = useExamTimer(DURATION);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     if (ef.started && !ef.complete) { timer.resetTimer(DURATION); timer.setTimerRunning(true); }
@@ -29,7 +31,17 @@ const EntretienFinal: React.FC<Props> = ({ speak, onBack }) => {
     /* eslint-disable-next-line */
   }, [timer.timeLeft]);
 
-  useEffect(() => { if (ef.complete) timer.setTimerRunning(false); /* eslint-disable-next-line */ }, [ef.complete]);
+  useEffect(() => {
+    if (ef.complete) {
+      timer.setTimerRunning(false);
+      if (onComplete && !completedRef.current) {
+        completedRef.current = true;
+        const avg10 = ef.answered > 0 ? ef.scoreSum / ef.answered : 0;
+        onComplete(Math.round(avg10 * 10));
+      }
+    }
+    /* eslint-disable-next-line */
+  }, [ef.complete]);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [ef.messages]);
 
   return (

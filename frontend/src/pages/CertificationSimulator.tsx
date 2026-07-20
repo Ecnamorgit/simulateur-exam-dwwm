@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import Separator from '../components/Separator';
 import './CertificationSimulator.css';
@@ -17,13 +17,16 @@ import InteractiveExaminer from '../components/exam/InteractiveExaminer';
 import DossierChecker from '../components/exam/DossierChecker';
 import KanbanBoard from '../components/exam/KanbanBoard';
 import OwaspTab from '../components/exam/OwaspTab';
+import TabNav from '../components/exam/TabNav';
 import ExamOverview from '../components/exam/ExamOverview';
 import EntretienTechnique from '../components/exam/EntretienTechnique';
 import QuestionnairePro from '../components/exam/QuestionnairePro';
 import EntretienFinal from '../components/exam/EntretienFinal';
+import ExamBlancBilan from '../components/exam/ExamBlancBilan';
 import { ExamPartId } from '../data/examParts';
+import { useExamBlanc, nextExamPart } from '../hooks/useExamBlanc';
 
-type TabId = 'epreuve' | 'oral' | 'dossier' | 'agile' | 'owasp' | 'entretien-technique' | 'questionnaire' | 'entretien-final';
+type TabId = 'epreuve' | 'oral' | 'dossier' | 'agile' | 'owasp' | 'entretien-technique' | 'questionnaire' | 'entretien-final' | 'examen-blanc-bilan';
 
 const CertificationSimulator: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('epreuve');
@@ -64,6 +67,8 @@ const CertificationSimulator: React.FC = () => {
     );
   };
 
+  const examBlanc = useExamBlanc();
+
   const startExamPart = (id: ExamPartId) => {
     if (id === 'soutenance') {
       setActiveTab('oral');
@@ -72,6 +77,30 @@ const CertificationSimulator: React.FC = () => {
       setActiveTab(id);
     }
   };
+
+  // En mode examen blanc : enregistre le score de l'épreuve et passe à la suivante
+  // (ou affiche le bilan global après la 4e épreuve).
+  const handlePartComplete = (id: ExamPartId, score: number) => {
+    if (!examBlanc.active) return;
+    examBlanc.record(id, score);
+    const next = nextExamPart(id);
+    if (next) startExamPart(next);
+    else setActiveTab('examen-blanc-bilan');
+  };
+
+  const startExamBlanc = () => {
+    examBlanc.start();
+    setActiveTab('oral');
+    setSimulationMode('jury');
+  };
+
+  // Complétion de la soutenance (le rapport vit dans le hook soutenance).
+  useEffect(() => {
+    if (examBlanc.active && soutenance.soutenanceReport && examBlanc.results.soutenance === undefined) {
+      handlePartComplete('soutenance', soutenance.soutenanceReport.overall_score);
+    }
+    /* eslint-disable-next-line */
+  }, [soutenance.soutenanceReport]);
 
   // Derived question sets and scores
   const filteredQuestions = qcm.selectedCategory === 'Toutes'
@@ -94,31 +123,23 @@ const CertificationSimulator: React.FC = () => {
       </header>
 
       {/* Navigation tabs */}
-      <div className="tab-navigation">
-        <div className="tab-pill">
-          <button className={`tab-link ${activeTab === 'epreuve' ? 'active' : ''}`} onClick={() => setActiveTab('epreuve')}>
-            Déroulé de l'épreuve
-          </button>
-          <button className={`tab-link ${activeTab === 'oral' ? 'active' : ''}`} onClick={() => setActiveTab('oral')}>
-            Simulateur d'Oral & QCM
-          </button>
-          <button className={`tab-link ${activeTab === 'dossier' ? 'active' : ''}`} onClick={() => setActiveTab('dossier')}>
-            Validation de Dossier
-          </button>
-          <button className={`tab-link ${activeTab === 'agile' ? 'active' : ''}`} onClick={() => setActiveTab('agile')}>
-            Backlog Agile
-          </button>
-          <button className={`tab-link ${activeTab === 'owasp' ? 'active' : ''}`} onClick={() => setActiveTab('owasp')}>
-            OWASP & Sécurité
-          </button>
-        </div>
-      </div>
+      <TabNav
+        tabs={[
+          { id: 'epreuve', label: "Déroulé de l'épreuve" },
+          { id: 'oral', label: "Simulateur d'Oral & QCM" },
+          { id: 'dossier', label: 'Validation de Dossier' },
+          { id: 'agile', label: 'Backlog Agile' },
+          { id: 'owasp', label: 'OWASP & Sécurité' },
+        ]}
+        activeTab={activeTab}
+        onSelect={(id) => setActiveTab(id as TabId)}
+      />
 
       <Separator width="300px" margin="32px auto" />
 
       {/* Déroulé de l'épreuve (page d'accueil) */}
       {activeTab === 'epreuve' && (
-        <ExamOverview onStartPart={startExamPart} onStartExamBlanc={() => startExamPart('soutenance')} />
+        <ExamOverview onStartPart={startExamPart} onStartExamBlanc={startExamBlanc} />
       )}
 
       {/* Oral & QCM tab */}
@@ -240,15 +261,34 @@ const CertificationSimulator: React.FC = () => {
           stopListening={stopListening}
           clearTranscript={clearTranscript}
           onBack={() => setActiveTab('epreuve')}
+          onComplete={examBlanc.active ? (s) => handlePartComplete('entretien-technique', s) : undefined}
         />
       )}
 
       {activeTab === 'questionnaire' && (
-        <QuestionnairePro onBack={() => setActiveTab('epreuve')} />
+        <QuestionnairePro
+          onBack={() => setActiveTab('epreuve')}
+          onComplete={examBlanc.active ? (s) => handlePartComplete('questionnaire', s) : undefined}
+        />
       )}
 
       {activeTab === 'entretien-final' && (
-        <EntretienFinal speak={speak} onBack={() => setActiveTab('epreuve')} />
+        <EntretienFinal
+          speak={speak}
+          onBack={() => setActiveTab('epreuve')}
+          onComplete={examBlanc.active ? (s) => handlePartComplete('entretien-final', s) : undefined}
+        />
+      )}
+
+      {activeTab === 'examen-blanc-bilan' && (
+        <ExamBlancBilan
+          results={examBlanc.results}
+          onBack={() => { examBlanc.cancel(); setActiveTab('epreuve'); }}
+        />
+      )}
+
+      {activeTab === 'examen-blanc-bilan' && (
+        <ExamBlancBilan results={examBlanc.results} onBack={() => setActiveTab('epreuve')} />
       )}
     </div>
   );

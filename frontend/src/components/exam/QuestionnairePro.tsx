@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CheckCircle2, XCircle, RefreshCw, Sparkles } from 'lucide-react';
 import { useQuestionnaire } from '../../hooks/useQuestionnaire';
 import { useExamTimer, formatTime } from '../../hooks/useExamTimer';
@@ -6,14 +6,16 @@ import { useExamTimer, formatTime } from '../../hooks/useExamTimer';
 interface Props {
   stack?: string;
   onBack: () => void;
+  onComplete?: (score: number) => void;
 }
 
 const DURATION = 30 * 60;
 
 /** Épreuve « Questionnaire professionnel » (30 min) : doc EN + 2 QCU FR + 2 ouvertes EN. */
-const QuestionnairePro: React.FC<Props> = ({ stack = '', onBack }) => {
+const QuestionnairePro: React.FC<Props> = ({ stack = '', onBack, onComplete }) => {
   const q = useQuestionnaire();
   const timer = useExamTimer(DURATION);
+  const completedRef = useRef(false);
 
   // Chargement initial du questionnaire.
   useEffect(() => { q.load(stack); /* eslint-disable-next-line */ }, []);
@@ -33,7 +35,19 @@ const QuestionnairePro: React.FC<Props> = ({ stack = '', onBack }) => {
     /* eslint-disable-next-line */
   }, [timer.timeLeft]);
 
-  useEffect(() => { if (q.result) timer.setTimerRunning(false); /* eslint-disable-next-line */ }, [q.result]);
+  useEffect(() => {
+    if (q.result) {
+      timer.setTimerRunning(false);
+      if (onComplete && !completedRef.current) {
+        completedRef.current = true;
+        const closedPct = q.result.closed.total ? (q.result.closed.correct / q.result.closed.total) * 100 : 0;
+        const openScores = q.result.open.flatMap((o) => [o.relevance_score, o.english_score]);
+        const openPct = openScores.length ? (openScores.reduce((a, b) => a + b, 0) / openScores.length) * 10 : 0;
+        onComplete(Math.round((closedPct + openPct) / 2));
+      }
+    }
+    /* eslint-disable-next-line */
+  }, [q.result]);
 
   return (
     <section className="tab-content fade-in">

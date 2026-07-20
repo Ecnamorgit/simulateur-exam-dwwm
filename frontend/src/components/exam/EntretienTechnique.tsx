@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import InteractiveExaminer from './InteractiveExaminer';
 import { useInteractiveExam } from '../../hooks/useInteractiveExam';
 import { useExamTimer, formatTime } from '../../hooks/useExamTimer';
@@ -16,6 +16,7 @@ interface Props {
   stopListening: () => void;
   clearTranscript: () => void;
   onBack: () => void;
+  onComplete?: (score: number) => void;
 }
 
 const DURATION = 40 * 60;
@@ -27,10 +28,11 @@ const DURATION = 40 * 60;
  */
 const EntretienTechnique: React.FC<Props> = ({
   questions, speak, ttsEnabled, setTtsEnabled,
-  transcript, isListening, hasSupport, startListening, stopListening, clearTranscript, onBack,
+  transcript, isListening, hasSupport, startListening, stopListening, clearTranscript, onBack, onComplete,
 }) => {
   const interactive = useInteractiveExam({ questions, speak, transcript, clearTranscript });
   const timer = useExamTimer(DURATION);
+  const completedRef = useRef(false);
 
   // Clôture automatique lorsque le temps est écoulé.
   useEffect(() => {
@@ -42,7 +44,15 @@ const EntretienTechnique: React.FC<Props> = ({
 
   // Arrête le chrono dès que la session se termine (par le temps ou par les questions).
   useEffect(() => {
-    if (interactive.sessionComplete) timer.setTimerRunning(false);
+    if (interactive.sessionComplete) {
+      timer.setTimerRunning(false);
+      if (onComplete && !completedRef.current) {
+        completedRef.current = true;
+        const avg10 = interactive.interactiveTotal > 0 ? interactive.interactiveScore / interactive.interactiveTotal : 0;
+        onComplete(Math.round(avg10 * 10)); // score sur 100
+      }
+    }
+    /* eslint-disable-next-line */
   }, [interactive.sessionComplete]);
 
   const handleStart = () => {
