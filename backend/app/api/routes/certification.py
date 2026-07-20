@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Response
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Response, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.sqlite import get_db, ExamSession, CriteriaResult, GeneratedQuestion
@@ -7,10 +7,18 @@ from app.services.question_generator import generate_questions_from_text
 from app.services.oral_evaluator import evaluate_oral_answer, evaluate_soutenance
 from app.services.tts_service import generate_speech, DEFAULT_VOICE
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 import json
+
+
+def _file_extension(filename: str) -> str:
+    """Retourne l'extension du fichier en minuscules, point inclus (ex. '.pdf')."""
+    if not filename or "." not in filename:
+        return ""
+    return "." + filename.rsplit(".", 1)[-1].lower()
 
 router = APIRouter(prefix="/certification")
 
@@ -96,10 +104,26 @@ class SessionCreateRequest(BaseModel):
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    filename = file.filename.lower()
-    
+    filename = (file.filename or "").lower()
+
+    # Whitelist d'extensions -> 415 Unsupported Media Type
+    ext = _file_extension(filename)
+    if ext not in settings.allowed_upload_extensions_set:
+        allowed = ", ".join(sorted(settings.allowed_upload_extensions_set))
+        raise HTTPException(
+            status_code=415,
+            detail=f"Type de fichier non supporté ({ext or 'inconnu'}). Extensions autorisées : {allowed}.",
+        )
+
     # Read binary file content to scan for key technologies
     contents = await file.read()
+
+    # Limite de taille -> 413 Payload Too Large
+    if len(contents) > settings.max_upload_size_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Fichier trop volumineux (maximum {settings.MAX_UPLOAD_SIZE_MB} Mo).",
+        )
     try:
         decoded_content = contents.decode("utf-8", errors="ignore").lower()
     except Exception:
@@ -278,7 +302,8 @@ class OralEvalRequest(BaseModel):
 
 
 @router.post("/oral-evaluate", response_model=OralEvalResponse)
-async def oral_evaluate(req: OralEvalRequest):
+@limiter.limit("30/minute")
+async def oral_evaluate(request: Request, req: OralEvalRequest):
     """Evaluate a candidate's spoken answer via AI examiner."""
     if not req.user_answer or not req.user_answer.strip():
         raise HTTPException(status_code=400, detail="La réponse du candidat est vide.")
@@ -311,7 +336,8 @@ class SoutenanceEvalRequest(BaseModel):
 
 
 @router.post("/soutenance-evaluate", response_model=SoutenanceResponse)
-async def soutenance_evaluate(req: SoutenanceEvalRequest):
+@limiter.limit("10/minute")
+async def soutenance_evaluate(request: Request, req: SoutenanceEvalRequest):
     """Evaluate a candidate's full 35-min oral presentation and return score + questions."""
     if not req.transcript or not req.transcript.strip():
         raise HTTPException(status_code=400, detail="La transcription de la présentation est vide.")
@@ -326,13 +352,21 @@ async def soutenance_evaluate(req: SoutenanceEvalRequest):
 
 
 @router.get("/tts")
-async def tts_endpoint(text: str, voice: Optional[str] = DEFAULT_VOICE):
+@limiter.limit("20/minute")
+async def tts_endpoint(request: Request, text: str, voice: Optional[str] = DEFAULT_VOICE):
     """
     Generate neural French speech audio using edge-tts (Microsoft Edge Neural Voices).
     Returns audio/mpeg MP3.
     """
     if not text or not text.strip():
         raise HTTPException(status_code=400, detail="Le texte est vide.")
+
+    # Limite de longueur -> 413 (protège d'un abus du proxy TTS)
+    if len(text) > settings.MAX_TTS_TEXT_LENGTH:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Texte trop long (maximum {settings.MAX_TTS_TEXT_LENGTH} caractères).",
+        )
 
     try:
         audio_bytes = await generate_speech(text=text, voice=voice or DEFAULT_VOICE)
