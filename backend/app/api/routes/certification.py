@@ -4,7 +4,6 @@ from sqlalchemy import select
 from app.db.sqlite import get_db, ExamSession, CriteriaResult, GeneratedQuestion, User
 from app.api.routes.auth import get_current_user
 from app.api.routes.badges import award_badge
-from app.services.speech_fallback import transcribe_audio_fallback
 from app.services.question_generator import generate_questions_from_text
 from app.services.document_parser import extract_text
 from app.services.dossier_checker import analyze_dossier
@@ -96,9 +95,6 @@ class SessionSchema(BaseModel):
     status: Optional[str] = None
     exam_part: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
-
-class TranscriptionResponse(BaseModel):
-    transcription: str
 
 class OralEvalResponse(BaseModel):
     score: int
@@ -262,15 +258,6 @@ async def get_session_questions(session_id: int, db: AsyncSession = Depends(get_
             "explanation": q.explanation
         })
     return response
-
-@router.post("/transcribe", response_model=TranscriptionResponse)
-async def transcribe_audio(file: UploadFile = File(...)):
-    file_data = await file.read()
-    try:
-        transcription = await transcribe_audio_fallback(file_data)
-        return {"transcription": transcription}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/sessions", response_model=SessionSchema)
 async def create_session(

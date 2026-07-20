@@ -33,6 +33,8 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
   const [evaluatingSoutenance, setEvaluatingSoutenance] = useState(false);
   const [soutenanceReport, setSoutenanceReport] = useState<SoutenanceReport | null>(null);
   const [accumulatedTranscript, setAccumulatedTranscript] = useState('');
+  // Saisie clavier de repli quand la reconnaissance vocale n'est pas supportée.
+  const [manualTranscript, setManualTranscript] = useState('');
 
   // Accumulate speech transcript during soutenance
   useEffect(() => {
@@ -80,7 +82,7 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
     if (isListening) stopListening();
     setEvaluatingSoutenance(true);
 
-    const fullText = accumulatedTranscript || transcript || "Présentation orale effectuée par l'étudiant.";
+    const fullText = accumulatedTranscript || manualTranscript || transcript || "Présentation orale effectuée par l'étudiant.";
     const elapsedSecs = (35 * 60) - timer.timeLeft;
 
     try {
@@ -123,6 +125,8 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
     evaluatingSoutenance,
     soutenanceReport,
     accumulatedTranscript,
+    manualTranscript,
+    setManualTranscript,
     handleStartSoutenanceClick,
     confirmStartSoutenance,
     startSoutenanceNow,

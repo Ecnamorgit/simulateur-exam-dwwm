@@ -15,6 +15,8 @@ interface Props {
   evaluatingSoutenance: boolean;
   soutenanceReport: SoutenanceReport | null;
   accumulatedTranscript: string;
+  manualTranscript: string;
+  setManualTranscript: (v: string) => void;
   handleStartSoutenanceClick: () => void;
   confirmStartSoutenance: (mode: 'dossier' | 'generic') => void;
   submitSoutenancePresentation: () => void;
@@ -106,10 +108,19 @@ const JuryMode: React.FC<Props> = (p) => {
           <p className="card-subtitle">Présentez votre projet à voix haute devant le jury</p>
 
           {!p.hasSupport && (
-            <div className="warning-box">
-              <AlertTriangle size={18} className="warn-icon" />
-              <span>Votre navigateur ne supporte pas l'API Web Speech native. Utilisez Chrome ou Edge pour cette fonctionnalité.</span>
-            </div>
+            <>
+              <div className="warning-box">
+                <AlertTriangle size={18} className="warn-icon" />
+                <span>Votre navigateur ne supporte pas la reconnaissance vocale (Web Speech). Vous pouvez saisir votre présentation au clavier ci-dessous.</span>
+              </div>
+              <textarea
+                className="open-answer-input"
+                placeholder="Saisissez le texte de votre présentation ici..."
+                value={p.manualTranscript}
+                onChange={(e) => p.setManualTranscript(e.target.value)}
+                rows={5}
+              />
+            </>
           )}
 
           <div className="speech-controls">
