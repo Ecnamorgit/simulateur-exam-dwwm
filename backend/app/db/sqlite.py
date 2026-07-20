@@ -1,13 +1,18 @@
-import os
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey
-from datetime import datetime
+from datetime import datetime, timezone
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./dwwm_simulator.db")
+from app.core.config import settings
 
-engine = create_async_engine(DATABASE_URL, future=True, echo=True)
+
+def _utcnow() -> datetime:
+    """Horodatage UTC timezone-aware (remplace datetime.utcnow, déprécié)."""
+    return datetime.now(timezone.utc)
+
+
+engine = create_async_engine(settings.DATABASE_URL, future=True, echo=False)
 async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 Base = declarative_base()
@@ -16,7 +21,7 @@ class ExamSession(Base):
     __tablename__ = 'exam_sessions'
     
     id = Column(Integer, primary_key=True, index=True)
-    date = Column(DateTime, default=datetime.utcnow, index=True)
+    date = Column(DateTime, default=_utcnow, index=True)
     duration_seconds = Column(Integer)
     score = Column(Integer)
     transcript = Column(Text)
