@@ -25,6 +25,10 @@ class Settings(BaseSettings):
 
     # --- Limites d'upload ---
     MAX_UPLOAD_SIZE_MB: int = 20
+    ALLOWED_UPLOAD_EXTENSIONS: str = ".pdf,.docx,.md,.txt"
+
+    # --- Limite de longueur du texte pour la synthèse vocale (TTS) ---
+    MAX_TTS_TEXT_LENGTH: int = 500
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -36,6 +40,15 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         """Retourne la liste des origines CORS à partir de la chaîne séparée par virgules."""
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def allowed_upload_extensions_set(self) -> set[str]:
+        """Ensemble des extensions de fichier autorisées à l'upload (en minuscules)."""
+        return {e.strip().lower() for e in self.ALLOWED_UPLOAD_EXTENSIONS.split(",") if e.strip()}
+
+    @property
+    def max_upload_size_bytes(self) -> int:
+        return self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
     @property
     def gemini_configured(self) -> bool:
