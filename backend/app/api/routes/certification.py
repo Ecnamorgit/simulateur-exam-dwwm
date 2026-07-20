@@ -7,6 +7,11 @@ from app.services.question_generator import generate_questions_from_text
 from app.services.document_parser import extract_text
 from app.services.dossier_checker import analyze_dossier
 from app.services.oral_evaluator import evaluate_oral_answer, evaluate_soutenance
+from app.services.questionnaire_generator import (
+    generate_questionnaire,
+    grade_closed_answers,
+    evaluate_open_answer,
+)
 from app.services.tts_service import generate_speech, DEFAULT_VOICE
 from app.core.config import settings
 from app.core.rate_limit import limiter
@@ -384,5 +389,78 @@ async def tts_endpoint(request: Request, text: str, voice: Optional[str] = DEFAU
     except Exception as e:
         print(f"[TTS Error] {e}")
         raise HTTPException(status_code=500, detail=f"Erreur de génération TTS: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Questionnaire professionnel (30 min) : doc EN + 2 QCU FR + 2 ouvertes EN
+# ---------------------------------------------------------------------------
+
+class ClosedQuestionSchema(BaseModel):
+    question: str
+    choices: List[str]
+    correct_answer: str = ""
+
+class OpenQuestionSchema(BaseModel):
+    question: str
+
+class QuestionnaireResponse(BaseModel):
+    documentation: str
+    closed_questions: List[ClosedQuestionSchema]
+    open_questions: List[OpenQuestionSchema]
+
+class QuestionnaireEvalRequest(BaseModel):
+    documentation: Optional[str] = ""
+    closed_questions: List[ClosedQuestionSchema] = []
+    closed_answers: List[str] = []
+    open_questions: List[str] = []
+    open_answers: List[str] = []
+    provider: Optional[str] = "auto"
+
+class ClosedDetailSchema(BaseModel):
+    question: str
+    given: str
+    correct_answer: str
+    is_correct: bool
+
+class ClosedResultSchema(BaseModel):
+    correct: int
+    total: int
+    details: List[ClosedDetailSchema]
+
+class OpenResultSchema(BaseModel):
+    question: str
+    relevance_score: int
+    english_score: int
+    feedback: str
+
+class QuestionnaireEvalResponse(BaseModel):
+    closed: ClosedResultSchema
+    open: List[OpenResultSchema]
+
+
+@router.get("/questionnaire", response_model=QuestionnaireResponse)
+@limiter.limit("15/minute")
+async def questionnaire(request: Request, stack: str = "", provider: str = "auto"):
+    """Génère un questionnaire professionnel (documentation EN + 2 QCU FR + 2 ouvertes EN)."""
+    return await generate_questionnaire(stack=stack, provider=provider or "auto")
+
+
+@router.post("/questionnaire-evaluate", response_model=QuestionnaireEvalResponse)
+@limiter.limit("15/minute")
+async def questionnaire_evaluate(request: Request, req: QuestionnaireEvalRequest):
+    """Corrige les 2 QCU et évalue les 2 réponses ouvertes anglaises (contenu + anglais)."""
+    closed = grade_closed_answers(
+        [q.model_dump() for q in req.closed_questions],
+        req.closed_answers,
+    )
+    open_results = []
+    for i, question_text in enumerate(req.open_questions):
+        answer = req.open_answers[i] if i < len(req.open_answers) else ""
+        evaluation = await evaluate_open_answer(
+            question_text, answer, req.documentation or "", provider=req.provider or "auto"
+        )
+        open_results.append({"question": question_text, **evaluation})
+
+    return {"closed": closed, "open": open_results}
 
 
