@@ -159,14 +159,22 @@ def _parse_evaluation(content: str) -> dict:
 
     parsed = json.loads(content)
 
+    def _str_list(value) -> list[str]:
+        return [str(x) for x in value] if isinstance(value, list) else []
+
+    try:
+        score = max(0, min(10, int(parsed.get("score", 5))))
+    except (TypeError, ValueError):
+        score = 5
+
     # Validate and normalize
     result = {
-        "score": max(0, min(10, int(parsed.get("score", 5)))),
-        "detected_keywords": parsed.get("detected_keywords", []),
-        "missing_keywords": parsed.get("missing_keywords", []),
-        "feedback": parsed.get("feedback", "Réponse enregistrée."),
-        "follow_up_question": parsed.get("follow_up_question", ""),
-        "is_follow_up": parsed.get("is_follow_up", False)
+        "score": score,
+        "detected_keywords": _str_list(parsed.get("detected_keywords")),
+        "missing_keywords": _str_list(parsed.get("missing_keywords")),
+        "feedback": str(parsed.get("feedback", "Réponse enregistrée.")),
+        "follow_up_question": str(parsed.get("follow_up_question", "") or ""),
+        "is_follow_up": bool(parsed.get("is_follow_up", False))
     }
     return result
 
@@ -345,7 +353,55 @@ def _parse_soutenance_json(content: str) -> dict:
         content = content[start:end + 1]
 
     parsed = json.loads(content)
-    return parsed
+    return _normalize_soutenance(parsed)
+
+
+def _normalize_soutenance(parsed: dict) -> dict:
+    """
+    Garantit la structure complète attendue par le schéma SoutenanceResponse,
+    avec des valeurs par défaut, pour qu'une réponse LLM incomplète/malformée
+    ne provoque jamais une erreur 500 côté API.
+    """
+    if not isinstance(parsed, dict):
+        parsed = {}
+
+    def _score(value, default: int = 60) -> int:
+        try:
+            return max(0, min(100, int(value)))
+        except (TypeError, ValueError):
+            return default
+
+    def _str_list(value) -> list[str]:
+        return [str(x) for x in value] if isinstance(value, list) else []
+
+    phases = []
+    for p in parsed.get("phases_covered") or []:
+        if isinstance(p, dict):
+            phases.append({
+                "phase": str(p.get("phase", "")),
+                "detected": bool(p.get("detected", False)),
+                "feedback": str(p.get("feedback", "")),
+            })
+
+    jury = []
+    for q in parsed.get("custom_jury_questions") or []:
+        if isinstance(q, dict):
+            jury.append({
+                "question_text": str(q.get("question_text", "")),
+                "category": str(q.get("category", "Général")),
+                "context_reason": str(q.get("context_reason", "")),
+            })
+
+    return {
+        "overall_score": _score(parsed.get("overall_score")),
+        "time_management_score": _score(parsed.get("time_management_score")),
+        "technical_depth_score": _score(parsed.get("technical_depth_score")),
+        "clarity_score": _score(parsed.get("clarity_score")),
+        "phases_covered": phases,
+        "strengths": _str_list(parsed.get("strengths")),
+        "areas_for_improvement": _str_list(parsed.get("areas_for_improvement")),
+        "custom_jury_questions": jury,
+    }
 
 
 def _fallback_soutenance(transcript: str, dossier_text: str = "", duration_seconds: int = 0) -> dict:

@@ -7,32 +7,86 @@ from app.services.question_generator import generate_questions_from_text
 from app.services.oral_evaluator import evaluate_oral_answer, evaluate_soutenance
 from app.services.tts_service import generate_speech, DEFAULT_VOICE
 from app.core.config import settings
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
+from datetime import datetime
 import json
 
 router = APIRouter(prefix="/certification")
 
-# Pydantic schemas for serialization
+# ---------------------------------------------------------------------------
+# Schémas Pydantic — validation ET documentation des réponses (branchés en
+# response_model sur chaque endpoint ; visibles dans /docs).
+# ---------------------------------------------------------------------------
+
 class CriteriaResultSchema(BaseModel):
     name: str
     checked: bool
     feedback: str
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
-
-class GeneratedQuestionSchema(BaseModel):
-    id: int
-    session_id: int
+class QuestionContentSchema(BaseModel):
+    """Contenu d'une question (sans identifiant BDD)."""
     type: str
     question_text: str
     choices: Optional[List[str]] = None
     correct_answer: str
     explanation: str
 
-    class Config:
-        from_attributes = True
+class SessionQuestionSchema(QuestionContentSchema):
+    """Question telle que stockée en base (avec son id)."""
+    id: int
+
+class UploadResponse(BaseModel):
+    session_id: int
+    score: int
+    criteria: List[CriteriaResultSchema]
+    questions: List[QuestionContentSchema]
+
+class SessionSchema(BaseModel):
+    id: int
+    date: Optional[datetime] = None
+    duration_seconds: Optional[int] = None
+    score: Optional[int] = None
+    transcript: Optional[str] = None
+    status: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class TranscriptionResponse(BaseModel):
+    transcription: str
+
+class OralEvalResponse(BaseModel):
+    score: int
+    detected_keywords: List[str]
+    missing_keywords: List[str]
+    feedback: str
+    follow_up_question: str
+    is_follow_up: bool
+
+class OralConfigResponse(BaseModel):
+    gemini_available: bool
+    ollama_available: bool
+    default_provider: str
+
+class PhaseCoveredSchema(BaseModel):
+    phase: str
+    detected: bool
+    feedback: str
+
+class JuryQuestionSchema(BaseModel):
+    question_text: str
+    category: str
+    context_reason: str
+
+class SoutenanceResponse(BaseModel):
+    overall_score: int
+    time_management_score: int
+    technical_depth_score: int
+    clarity_score: int
+    phases_covered: List[PhaseCoveredSchema]
+    strengths: List[str]
+    areas_for_improvement: List[str]
+    custom_jury_questions: List[JuryQuestionSchema]
 
 class SessionCreateRequest(BaseModel):
     duration_seconds: int
@@ -40,7 +94,7 @@ class SessionCreateRequest(BaseModel):
     transcript: str
     status: str
 
-@router.post("/upload")
+@router.post("/upload", response_model=UploadResponse)
 async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     filename = file.filename.lower()
     
@@ -147,7 +201,7 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
         "questions": questions_response
     }
 
-@router.get("/sessions/{session_id}/questions")
+@router.get("/sessions/{session_id}/questions", response_model=List[SessionQuestionSchema])
 async def get_session_questions(session_id: int, db: AsyncSession = Depends(get_db)):
     stmt = select(GeneratedQuestion).where(GeneratedQuestion.session_id == session_id)
     result = await db.execute(stmt)
@@ -165,7 +219,7 @@ async def get_session_questions(session_id: int, db: AsyncSession = Depends(get_
         })
     return response
 
-@router.post("/transcribe")
+@router.post("/transcribe", response_model=TranscriptionResponse)
 async def transcribe_audio(file: UploadFile = File(...)):
     file_data = await file.read()
     try:
@@ -174,7 +228,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/sessions")
+@router.post("/sessions", response_model=SessionSchema)
 async def create_session(req: SessionCreateRequest, db: AsyncSession = Depends(get_db)):
     session = ExamSession(
         duration_seconds=req.duration_seconds,
@@ -194,7 +248,7 @@ async def create_session(req: SessionCreateRequest, db: AsyncSession = Depends(g
         "status": session.status
     }
 
-@router.get("/sessions")
+@router.get("/sessions", response_model=List[SessionSchema])
 async def get_sessions(db: AsyncSession = Depends(get_db)):
     stmt = select(ExamSession).order_by(ExamSession.date.desc())
     result = await db.execute(stmt)
@@ -223,7 +277,7 @@ class OralEvalRequest(BaseModel):
     provider: Optional[str] = "auto"  # "gemini", "ollama", or "auto"
 
 
-@router.post("/oral-evaluate")
+@router.post("/oral-evaluate", response_model=OralEvalResponse)
 async def oral_evaluate(req: OralEvalRequest):
     """Evaluate a candidate's spoken answer via AI examiner."""
     if not req.user_answer or not req.user_answer.strip():
@@ -238,7 +292,7 @@ async def oral_evaluate(req: OralEvalRequest):
     return result
 
 
-@router.get("/oral-config")
+@router.get("/oral-config", response_model=OralConfigResponse)
 async def oral_config():
     """Return available providers for the frontend."""
     gemini_available = settings.gemini_configured
@@ -256,7 +310,7 @@ class SoutenanceEvalRequest(BaseModel):
     provider: Optional[str] = "auto"
 
 
-@router.post("/soutenance-evaluate")
+@router.post("/soutenance-evaluate", response_model=SoutenanceResponse)
 async def soutenance_evaluate(req: SoutenanceEvalRequest):
     """Evaluate a candidate's full 35-min oral presentation and return score + questions."""
     if not req.transcript or not req.transcript.strip():
