@@ -1,4 +1,5 @@
 # Simulateur d'examen blanc DWWM
+<img width="1882" height="776" alt="Capture d&#39;écran 2026-07-20 174237" src="https://github.com/user-attachments/assets/8c8b48db-4d77-4f93-8888-4de39de373e3" />
 
 [![CI](https://github.com/Ecnamorgit/simulateur-exam-dwwm/actions/workflows/ci.yml/badge.svg)](https://github.com/Ecnamorgit/simulateur-exam-dwwm/actions/workflows/ci.yml)
 
@@ -23,7 +24,10 @@ l'épreuve (**2 h 00**) et fournit des outils d'entraînement, avec évaluation 
 - **Outils de révision** : QCM technique par domaine, banque de questions du jury, fiches OWASP, backlog agile (Kanban).
 - **Synthèse vocale** des questions du jury (edge-tts) + reconnaissance vocale (Web Speech, avec repli clavier).
 
-> Feuille de route : [`PLAN_DEVELOPPEMENT.md`](PLAN_DEVELOPPEMENT.md).
+<img width="1791" height="812" alt="Capture d&#39;écran 2026-07-20 172920" src="https://github.com/user-attachments/assets/1beb8d35-c5ce-4394-a4cf-a27e3c4ff41a" />
+<img width="1843" height="782" alt="Capture d&#39;écran 2026-07-20 172907" src="https://github.com/user-attachments/assets/ddf2e72b-cde0-4927-b823-3781a2091ee9" />
+<img width="1877" height="785" alt="Capture d&#39;écran 2026-07-20 172856" src="https://github.com/user-attachments/assets/84e9f12e-b7c7-433e-acf3-e5d7669266d5" />
+<img width="1912" height="495" alt="Capture d&#39;écran 2026-07-20 172932" src="https://github.com/user-attachments/assets/18ec4c81-ac71-41d2-8ddd-630e38b7c298" />
 
 ---
 
