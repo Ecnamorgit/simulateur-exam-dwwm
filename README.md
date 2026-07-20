@@ -1,9 +1,15 @@
 # Simulateur d'examen blanc DWWM
 
+<!-- Après avoir poussé sur GitHub, remplacez VOTRE_PSEUDO/simulateur-dwwm : -->
+<!-- ![CI](https://github.com/VOTRE_PSEUDO/simulateur-dwwm/actions/workflows/ci.yml/badge.svg) -->
+
 Application web de simulation de l'épreuve de certification du Titre Professionnel
 **Développeur Web et Web Mobile** (RNCP 37674). Elle reproduit le déroulé officiel de
 l'épreuve (**2 h 00**) et fournit des outils d'entraînement, avec évaluation par IA
 (et repli hors-ligne).
+
+> 📘 **Nouveau sur le projet ?** Suivez le [**tutoriel pas-à-pas**](docs/tutoriel.md) :
+> publication sur GitHub, lancement avec Docker, utilisation et dépannage.
 
 ## Fonctionnalités
 
