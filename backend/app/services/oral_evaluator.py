@@ -13,8 +13,9 @@ import json
 import urllib.request
 import urllib.error
 import asyncio
-import os
 import re
+
+from app.core.config import settings
 
 
 # ---------------------------------------------------------------------------
@@ -23,12 +24,12 @@ import re
 
 def _call_gemini(question: str, user_answer: str, context: list[dict] | None = None) -> dict:
     """Call Google Gemini API to evaluate an oral answer."""
-    api_key = os.getenv("GEMINI_API_KEY", "")
+    api_key = settings.GEMINI_API_KEY
     if not api_key:
         raise ValueError("GEMINI_API_KEY not set")
 
-    model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    model = settings.GEMINI_MODEL
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
     system_prompt = (
         "Vous êtes un examinateur du Titre Professionnel Développeur Web et Web Mobile (RNCP 37674). "
@@ -80,7 +81,7 @@ def _call_gemini(question: str, user_answer: str, context: list[dict] | None = N
     req = urllib.request.Request(
         url,
         data=json.dumps(data).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
         method="POST"
     )
 
@@ -246,12 +247,12 @@ async def evaluate_oral_answer(
 # ---------------------------------------------------------------------------
 
 def _call_gemini_soutenance(transcript: str, dossier_text: str = "", duration_seconds: int = 0) -> dict:
-    api_key = os.getenv("GEMINI_API_KEY", "")
+    api_key = settings.GEMINI_API_KEY
     if not api_key:
         raise ValueError("GEMINI_API_KEY not set")
 
-    model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    model = settings.GEMINI_MODEL
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
     system_prompt = (
         "Vous êtes le président du jury d'examen du Titre Professionnel Développeur Web et Web Mobile (RNCP 37674). "
@@ -294,7 +295,7 @@ def _call_gemini_soutenance(transcript: str, dossier_text: str = "", duration_se
         "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048}
     }
 
-    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
+    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={"Content-Type": "application/json", "x-goog-api-key": api_key}, method="POST")
 
     with urllib.request.urlopen(req, timeout=45) as response:
         res_data = json.loads(response.read().decode("utf-8"))

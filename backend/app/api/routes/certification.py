@@ -6,8 +6,7 @@ from app.services.speech_fallback import transcribe_audio_fallback
 from app.services.question_generator import generate_questions_from_text
 from app.services.oral_evaluator import evaluate_oral_answer, evaluate_soutenance
 from app.services.tts_service import generate_speech, DEFAULT_VOICE
-import os
-from datetime import datetime
+from app.core.config import settings
 from pydantic import BaseModel
 from typing import List, Optional
 import json
@@ -242,7 +241,7 @@ async def oral_evaluate(req: OralEvalRequest):
 @router.get("/oral-config")
 async def oral_config():
     """Return available providers for the frontend."""
-    gemini_available = bool(os.getenv("GEMINI_API_KEY", ""))
+    gemini_available = settings.gemini_configured
     return {
         "gemini_available": gemini_available,
         "ollama_available": True,  # Assumed; will fail gracefully if not running
