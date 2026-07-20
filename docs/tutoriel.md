@@ -64,7 +64,7 @@ le pousser sur GitHub. Deux méthodes.
 ### Méthode A — via l'interface GitHub (recommandée pour débuter)
 
 1. Sur https://github.com/new, créez un dépôt **vide** (sans README ni .gitignore),
-   par exemple `simulateur-dwwm`. Notez son URL, ex. `https://github.com/VOTRE_PSEUDO/simulateur-dwwm.git`.
+   par exemple `simulateur-dwwm`. Notez son URL, ex. `https://github.com/Ecnamorgit/simulateur-exam-dwwm.git`.
 2. Dans un terminal, à la racine du projet :
 
 ```bash
@@ -72,7 +72,7 @@ le pousser sur GitHub. Deux méthodes.
 git branch -M main
 
 # Relier le dépôt local à GitHub
-git remote add origin https://github.com/VOTRE_PSEUDO/simulateur-dwwm.git
+git remote add origin https://github.com/Ecnamorgit/simulateur-exam-dwwm.git
 
 # Envoyer le code
 git push -u origin main
@@ -82,7 +82,7 @@ git push -u origin main
 
 ```bash
 gh auth login                       # connexion (une seule fois)
-gh repo create simulateur-dwwm --public --source=. --remote=origin --push
+gh repo create simulateur-exam-dwwm --public --source=. --remote=origin --push
 ```
 
 ### Après le push
@@ -93,7 +93,7 @@ gh repo create simulateur-dwwm --public --source=. --remote=origin --push
 - Ajoutez le **badge CI** en haut du `README.md` (remplacez `VOTRE_PSEUDO` / `simulateur-dwwm`) :
 
 ```markdown
-![CI](https://github.com/VOTRE_PSEUDO/simulateur-dwwm/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Ecnamorgit/simulateur-exam-dwwm/actions/workflows/ci.yml/badge.svg)
 ```
 
 > ⚠️ Le fichier `.env` (qui contient votre clé API) est **ignoré par Git** et n'est jamais
