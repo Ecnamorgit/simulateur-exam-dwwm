@@ -12,6 +12,7 @@ from app.services.questionnaire_generator import (
     grade_closed_answers,
     evaluate_open_answer,
 )
+from app.services.entretien_final import FINAL_QUESTIONS, evaluate_final_answer
 from app.services.tts_service import generate_speech, DEFAULT_VOICE
 from app.core.config import settings
 from app.core.rate_limit import limiter
@@ -462,5 +463,35 @@ async def questionnaire_evaluate(request: Request, req: QuestionnaireEvalRequest
         open_results.append({"question": question_text, **evaluation})
 
     return {"closed": closed, "open": open_results}
+
+
+# ---------------------------------------------------------------------------
+# Entretien final (15 min) : échange non technique (métier, posture, DP...)
+# ---------------------------------------------------------------------------
+
+class FinalQuestionsResponse(BaseModel):
+    questions: List[str]
+
+class FinalEvalRequest(BaseModel):
+    question: str
+    answer: str
+    provider: Optional[str] = "auto"
+
+class FinalEvalResponse(BaseModel):
+    score: int
+    feedback: str
+
+
+@router.get("/entretien-final-questions", response_model=FinalQuestionsResponse)
+async def entretien_final_questions():
+    """Banque de questions non techniques de l'entretien final."""
+    return {"questions": FINAL_QUESTIONS}
+
+
+@router.post("/entretien-final-evaluate", response_model=FinalEvalResponse)
+@limiter.limit("30/minute")
+async def entretien_final_evaluate(request: Request, req: FinalEvalRequest):
+    """Évalue le savoir-être / la clarté d'une réponse de l'entretien final."""
+    return await evaluate_final_answer(req.question, req.answer, provider=req.provider or "auto")
 
 

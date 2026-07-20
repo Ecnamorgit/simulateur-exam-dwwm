@@ -69,3 +69,20 @@ export async function evaluateQuestionnaire(payload: any): Promise<any> {
   });
   return res.json();
 }
+
+/** Banque de questions de l'entretien final (non technique). */
+export async function getFinalQuestions(): Promise<string[]> {
+  const res = await fetch(`${BASE}/entretien-final-questions`);
+  if (!res.ok) throw new Error("Impossible de charger les questions de l'entretien final.");
+  return (await res.json()).questions;
+}
+
+/** Évalue une réponse de l'entretien final (savoir-être / clarté). */
+export async function evaluateFinalAnswer(question: string, answer: string): Promise<any> {
+  const res = await fetch(`${BASE}/entretien-final-evaluate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, answer }),
+  });
+  return res.json();
+}

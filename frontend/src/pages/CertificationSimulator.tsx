@@ -20,6 +20,7 @@ import OwaspTab from '../components/exam/OwaspTab';
 import ExamOverview from '../components/exam/ExamOverview';
 import EntretienTechnique from '../components/exam/EntretienTechnique';
 import QuestionnairePro from '../components/exam/QuestionnairePro';
+import EntretienFinal from '../components/exam/EntretienFinal';
 import { ExamPartId } from '../data/examParts';
 
 type TabId = 'epreuve' | 'oral' | 'dossier' | 'agile' | 'owasp' | 'entretien-technique' | 'questionnaire' | 'entretien-final';
@@ -247,13 +248,7 @@ const CertificationSimulator: React.FC = () => {
       )}
 
       {activeTab === 'entretien-final' && (
-        <section className="tab-content fade-in">
-          <div className="card-soft page-intro-card">
-            <h3 className="card-title">Épreuve en cours de préparation</h3>
-            <p className="card-subtitle">Cette épreuve sera bientôt disponible dans le simulateur.</p>
-            <button className="btn-outline-pill" onClick={() => setActiveTab('epreuve')}>← Retour au déroulé</button>
-          </div>
-        </section>
+        <EntretienFinal speak={speak} onBack={() => setActiveTab('epreuve')} />
       )}
     </div>
   );
