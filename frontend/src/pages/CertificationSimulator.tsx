@@ -19,6 +19,7 @@ import KanbanBoard from '../components/exam/KanbanBoard';
 import OwaspTab from '../components/exam/OwaspTab';
 import ExamOverview from '../components/exam/ExamOverview';
 import EntretienTechnique from '../components/exam/EntretienTechnique';
+import QuestionnairePro from '../components/exam/QuestionnairePro';
 import { ExamPartId } from '../data/examParts';
 
 type TabId = 'epreuve' | 'oral' | 'dossier' | 'agile' | 'owasp' | 'entretien-technique' | 'questionnaire' | 'entretien-final';
@@ -241,7 +242,11 @@ const CertificationSimulator: React.FC = () => {
         />
       )}
 
-      {(activeTab === 'questionnaire' || activeTab === 'entretien-final') && (
+      {activeTab === 'questionnaire' && (
+        <QuestionnairePro onBack={() => setActiveTab('epreuve')} />
+      )}
+
+      {activeTab === 'entretien-final' && (
         <section className="tab-content fade-in">
           <div className="card-soft page-intro-card">
             <h3 className="card-title">Épreuve en cours de préparation</h3>

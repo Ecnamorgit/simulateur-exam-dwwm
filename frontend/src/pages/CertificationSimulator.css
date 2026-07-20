@@ -1675,3 +1675,35 @@
   color: #d32f2f;
   background: rgba(211, 47, 47, 0.12);
 }
+
+/* ── Questionnaire professionnel (Phase 3.3) ── */
+.doc-text {
+  white-space: pre-wrap;
+  line-height: 1.65;
+  color: var(--color-charcoal, #333);
+  font-size: 14.5px;
+}
+.open-answer-input {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.open-answer-input:focus {
+  outline: none;
+  border-color: var(--color-fern, #4a7c59);
+}
+.open-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.12);
+}
