@@ -9,10 +9,11 @@ interface Props {
 /** En-tête du simulateur (titre + barre d'authentification). */
 const SimulatorHeader: React.FC<Props> = ({ auth }) => (
   <header className="hero-section">
-    <h1 className="hero-brand">Anything</h1>
-    <h2 className="hero-headline">Simulateur de Certification</h2>
+    <h1 className="hero-brand">Examen blanc DWWM</h1>
+    <h2 className="hero-headline">Préparez votre certification</h2>
     <p className="hero-subtext">
-      daylight reverie: préparez méthodiquement votre épreuve de Titre Professionnel DWWM
+      Entraînez-vous au déroulé complet de l'épreuve (2 h) : soutenance, entretien technique,
+      questionnaire professionnel et entretien final.
     </p>
     <AuthBar auth={auth} />
   </header>

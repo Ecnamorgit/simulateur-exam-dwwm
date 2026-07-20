@@ -53,3 +53,11 @@
 .nav-link:hover {
   color: var(--color-charcoal);
 }
+
+.navbar-tagline {
+  font-family: var(--font-inter);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-slate-mid);
+  letter-spacing: 0.02em;
+}
