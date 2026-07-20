@@ -32,3 +32,24 @@ export interface AnalysisResult {
   score: number;
   criteria: { name: string; checked: boolean; feedback: string }[];
 }
+
+export interface ClosedQuestion {
+  question: string;
+  choices: string[];
+  correct_answer: string;
+}
+
+export interface Questionnaire {
+  documentation: string;
+  closed_questions: ClosedQuestion[];
+  open_questions: { question: string }[];
+}
+
+export interface QuestionnaireResult {
+  closed: {
+    correct: number;
+    total: number;
+    details: { question: string; given: string; correct_answer: string; is_correct: boolean }[];
+  };
+  open: { question: string; relevance_score: number; english_score: number; feedback: string }[];
+}

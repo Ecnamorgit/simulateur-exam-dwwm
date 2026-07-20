@@ -52,3 +52,20 @@ export async function evaluateSoutenance(payload: SoutenanceEvalPayload): Promis
 export function ttsUrl(text: string): string {
   return `${BASE}/tts?text=${encodeURIComponent(text)}`;
 }
+
+/** Récupère un questionnaire professionnel (doc EN + 2 QCU FR + 2 ouvertes EN). */
+export async function getQuestionnaire(stack: string = ''): Promise<any> {
+  const res = await fetch(`${BASE}/questionnaire?stack=${encodeURIComponent(stack)}`);
+  if (!res.ok) throw new Error('Impossible de charger le questionnaire.');
+  return res.json();
+}
+
+/** Corrige les QCU et évalue les réponses ouvertes anglaises. */
+export async function evaluateQuestionnaire(payload: any): Promise<any> {
+  const res = await fetch(`${BASE}/questionnaire-evaluate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
