@@ -30,7 +30,11 @@ import { useExamBlanc, nextExamPart } from '../hooks/useExamBlanc';
 
 type TabId = 'epreuve' | 'oral' | 'dossier' | 'agile' | 'owasp' | 'entretien-technique' | 'questionnaire' | 'entretien-final' | 'examen-blanc-bilan';
 
-const CertificationSimulator: React.FC = () => {
+interface CertificationSimulatorProps {
+  auth: ReturnType<typeof useAuth>;
+}
+
+const CertificationSimulator: React.FC<CertificationSimulatorProps> = ({ auth }) => {
   const [activeTab, setActiveTab] = useState<TabId>('epreuve');
   const [simulationMode, setSimulationMode] = useState<'jury' | 'qcm' | 'interactive'>('jury');
   const [questions, setQuestions] = useState<Question[]>(DWWM_QUESTIONS);
@@ -41,7 +45,6 @@ const CertificationSimulator: React.FC = () => {
     { id: '4', title: 'Mise en place du workflow CI/CD (DevOps)', points: 3, status: 'backlog' },
   ]);
 
-  const auth = useAuth();
   const { transcript, isListening, hasSupport, startListening, stopListening, clearTranscript } = useSpeechRecognition();
 
   const timer = useExamTimer(35 * 60);
@@ -117,7 +120,7 @@ const CertificationSimulator: React.FC = () => {
 
   return (
     <div className="simulator-page">
-      <SimulatorHeader auth={auth} />
+      <SimulatorHeader />
 
       {/* Navigation tabs */}
       <TabNav

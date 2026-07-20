@@ -1,7 +1,13 @@
 import React from 'react';
+import AuthBar from './exam/AuthBar';
+import { useAuth } from '../hooks/useAuth';
 import './NavBar.css';
 
-const NavBar: React.FC = () => {
+interface Props {
+  auth: ReturnType<typeof useAuth>;
+}
+
+const NavBar: React.FC<Props> = ({ auth }) => {
   return (
     <div className="navbar-container">
       <nav className="navbar">
@@ -9,7 +15,7 @@ const NavBar: React.FC = () => {
           <span className="navbar-brand">🎓 Simulateur DWWM</span>
         </div>
         <div className="navbar-right">
-          <span className="navbar-tagline">Titre Professionnel — RNCP 37674</span>
+          <AuthBar auth={auth} />
         </div>
       </nav>
     </div>

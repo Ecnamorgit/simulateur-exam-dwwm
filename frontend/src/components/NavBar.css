@@ -13,10 +13,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
   width: 100%;
-  max-width: 960px;
-  height: 64px;
-  padding: 0 24px;
+  max-width: 1180px;
+  min-height: 64px;
+  padding: 10px 24px;
   background: var(--glass-bg);
   backdrop-filter: var(--glass-backdrop);
   -webkit-backdrop-filter: var(--glass-backdrop);
@@ -24,6 +26,9 @@
   border-radius: var(--radius-cards); /* 20px radius */
   box-shadow: var(--shadow-md);
 }
+
+.navbar-left { flex-shrink: 0; }
+.navbar-right { flex: 1; display: flex; justify-content: flex-end; }
 
 .navbar-brand {
   font-family: var(--font-instrument-serif);

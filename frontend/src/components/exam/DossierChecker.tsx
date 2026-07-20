@@ -19,10 +19,10 @@ const DossierChecker: React.FC<Props> = ({ selectedFile, analyzing, analysisResu
       <p className="card-subtitle">Glissez-déposez ou sélectionnez votre fichier de projet (PDF ou Word, 30-50 pages réglementaires)</p>
 
       <div className="file-drop-zone">
-        <input type="file" id="file-upload" accept=".pdf,.docx" onChange={handleFileChange} style={{ display: 'none' }} />
+        <input type="file" id="file-upload" accept=".pdf,.docx,.md,.txt" onChange={handleFileChange} style={{ display: 'none' }} />
         <label htmlFor="file-upload" className="upload-label">
           <span className="upload-text-main">Sélectionner un fichier</span>
-          <span className="upload-text-sub">Fichiers acceptés : .pdf, .docx (Max 15MB)</span>
+          <span className="upload-text-sub">Fichiers acceptés : .pdf, .docx, .md, .txt (max 20 Mo)</span>
         </label>
       </div>
 
