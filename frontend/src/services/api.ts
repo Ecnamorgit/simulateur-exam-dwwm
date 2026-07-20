@@ -4,6 +4,45 @@
  */
 
 const BASE = '/api/certification';
+const AUTH_BASE = '/api/auth';
+
+// Jeton JWT conservé EN MÉMOIRE uniquement (jamais en localStorage).
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return authToken ? { ...extra, Authorization: `Bearer ${authToken}` } : extra;
+}
+
+/** Inscription d'un nouvel utilisateur. */
+export async function register(email: string, password: string): Promise<any> {
+  const res = await fetch(`${AUTH_BASE}/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const detail = res.status === 409 ? 'Un compte existe déjà avec cet email.'
+      : res.status === 422 ? 'Mot de passe trop court (8 caractères minimum).'
+      : "Échec de l'inscription.";
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+/** Connexion : retourne le token JWT. */
+export async function login(email: string, password: string): Promise<string> {
+  const res = await fetch(`${AUTH_BASE}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) throw new Error('Email ou mot de passe incorrect.');
+  return (await res.json()).access_token;
+}
 
 export interface OralEvalPayload {
   question: string;
@@ -58,16 +97,16 @@ export async function createSession(payload: {
 }): Promise<any> {
   const res = await fetch(`${BASE}/sessions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("Impossible d'enregistrer la session.");
   return res.json();
 }
 
-/** Récupère l'historique des sessions enregistrées. */
+/** Récupère l'historique des sessions de l'utilisateur connecté. */
 export async function getSessions(): Promise<any[]> {
-  const res = await fetch(`${BASE}/sessions`);
+  const res = await fetch(`${BASE}/sessions`, { headers: authHeaders() });
   if (!res.ok) throw new Error("Impossible de charger l'historique.");
   return res.json();
 }

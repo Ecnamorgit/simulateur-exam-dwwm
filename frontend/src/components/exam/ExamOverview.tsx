@@ -6,17 +6,18 @@ import { getSessions } from '../../services/api';
 interface Props {
   onStartPart: (id: ExamPartId) => void;
   onStartExamBlanc: () => void;
+  authKey?: string;
 }
 
 /** Écran d'accueil : présente le déroulé officiel des 4 épreuves (2 h 00). */
-const ExamOverview: React.FC<Props> = ({ onStartPart, onStartExamBlanc }) => {
+const ExamOverview: React.FC<Props> = ({ onStartPart, onStartExamBlanc, authKey }) => {
   const [history, setHistory] = useState<any[]>([]);
 
   useEffect(() => {
     getSessions()
       .then((all) => setHistory(all.filter((s) => s.exam_part === 'examen-blanc')))
       .catch(() => setHistory([]));
-  }, []);
+  }, [authKey]);
 
   return (
   <section className="tab-content fade-in">

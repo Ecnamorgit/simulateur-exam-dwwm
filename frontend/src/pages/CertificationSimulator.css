@@ -1720,3 +1720,32 @@
 .exam-verdict.good { color: #1b5e20; background: rgba(74, 124, 89, 0.15); }
 .exam-verdict.mid  { color: #8a6d00; background: rgba(214, 178, 46, 0.18); }
 .exam-verdict.low  { color: #b71c1c; background: rgba(211, 47, 47, 0.12); }
+
+/* ── Barre d'authentification (Phase 4.1) ── */
+.auth-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.auth-input {
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 999px;
+  font-size: 13px;
+  min-width: 160px;
+}
+.auth-input:focus { outline: none; border-color: var(--color-fern, #4a7c59); }
+.auth-btn { padding: 8px 16px !important; font-size: 13px !important; }
+.auth-switch {
+  background: none;
+  border: none;
+  color: var(--color-fern, #4a7c59);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.auth-user { font-size: 14px; }
+.auth-error { color: #d32f2f; font-size: 13px; width: 100%; text-align: center; }

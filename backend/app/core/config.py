@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # --- Limite de longueur du texte pour la synthèse vocale (TTS) ---
     MAX_TTS_TEXT_LENGTH: int = 500
 
+    # --- Authentification JWT ---
+    JWT_SECRET: str = "dev-secret-change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -16,9 +16,19 @@ async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncS
 
 Base = declarative_base()
 
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=_utcnow)
+
+    exam_sessions = relationship("ExamSession", back_populates="user")
+
 class ExamSession(Base):
     __tablename__ = 'exam_sessions'
-    
+
     id = Column(Integer, primary_key=True, index=True)
     date = Column(DateTime, default=_utcnow, index=True)
     duration_seconds = Column(Integer)
@@ -28,7 +38,10 @@ class ExamSession(Base):
     # Partie de l'épreuve concernée (soutenance, entretien-technique, questionnaire,
     # entretien-final, ou "examen-blanc" pour le bilan global). Null pour les anciennes lignes.
     exam_part = Column(String, nullable=True, index=True)
+    # Propriétaire de la session (null pour les anciennes lignes anonymes).
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
 
+    user = relationship("User", back_populates="exam_sessions")
     criteria_results = relationship("CriteriaResult", back_populates="exam_session", cascade="all, delete-orphan")
     generated_questions = relationship("GeneratedQuestion", back_populates="exam_session", cascade="all, delete-orphan")
 
@@ -59,17 +72,18 @@ class GeneratedQuestion(Base):
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Micro-migration : ajoute la colonne exam_part si une base existante
-        # (créée avant l'ajout du champ) ne l'a pas encore.
-        await conn.run_sync(_ensure_exam_part_column)
+        # Micro-migrations : ajoute les colonnes récentes aux bases existantes.
+        await conn.run_sync(_ensure_columns)
 
 
-def _ensure_exam_part_column(conn):
+def _ensure_columns(conn):
     from sqlalchemy import text
     cols = conn.execute(text("PRAGMA table_info(exam_sessions)")).fetchall()
     names = {c[1] for c in cols}
     if "exam_part" not in names:
         conn.execute(text("ALTER TABLE exam_sessions ADD COLUMN exam_part VARCHAR"))
+    if "user_id" not in names:
+        conn.execute(text("ALTER TABLE exam_sessions ADD COLUMN user_id INTEGER"))
 
 async def get_db():
     async with async_session() as session:
