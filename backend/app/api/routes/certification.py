@@ -22,6 +22,32 @@ def _file_extension(filename: str) -> str:
         return ""
     return "." + filename.rsplit(".", 1)[-1].lower()
 
+
+# Longueur max du contenu de dossier envoyé au générateur de questions.
+MAX_DOSSIER_PROMPT_CHARS = 6000
+
+
+def build_dossier_prompt(filename: str, techs: list[str], extracted_text: str) -> str:
+    """
+    Construit le prompt envoyé au générateur de questions à partir du CONTENU
+    RÉEL extrait du dossier (tronqué), afin que les questions portent sur le
+    projet du candidat et non sur une description générique.
+    """
+    content = (extracted_text or "").strip()
+    if content:
+        return (
+            f"Titre du dossier : '{filename}'.\n"
+            f"Technologies identifiées : {', '.join(techs)}.\n\n"
+            "Génère des questions d'examen portant spécifiquement sur le contenu "
+            "réel du dossier de projet ci-dessous :\n\n"
+            f"{content[:MAX_DOSSIER_PROMPT_CHARS]}"
+        )
+    # Aucun texte exploitable extrait : repli sur une description générique.
+    return (
+        f"Le document s'intitule '{filename}'. "
+        f"Les technologies identifiées sont : {', '.join(techs)}."
+    )
+
 router = APIRouter(prefix="/certification")
 
 # ---------------------------------------------------------------------------
@@ -176,13 +202,8 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
             "feedback": res.feedback
         })
 
-    # Generate custom questions using LLM local service
-    project_description_prompt = (
-        f"Le document s'intitule '{file.filename}'. "
-        f"Les technologies identifiées sont : {', '.join(techs)}. "
-        f"Le document mentionne des notions de modélisation de données, de sécurité, de veille et de tests."
-    )
-    
+    # Generate custom questions based on the REAL extracted dossier content.
+    project_description_prompt = build_dossier_prompt(file.filename or "", techs, extracted_text)
     generated_questions = await generate_questions_from_text(project_description_prompt)
     
     questions_response = []
