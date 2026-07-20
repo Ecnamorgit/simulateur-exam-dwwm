@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Response, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.db.sqlite import get_db, ExamSession, CriteriaResult, GeneratedQuestion
+from app.db.sqlite import get_db, ExamSession, CriteriaResult, GeneratedQuestion, User
+from app.api.routes.auth import get_current_user
 from app.services.speech_fallback import transcribe_audio_fallback
 from app.services.question_generator import generate_questions_from_text
 from app.services.document_parser import extract_text
@@ -271,13 +272,18 @@ async def transcribe_audio(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/sessions", response_model=SessionSchema)
-async def create_session(req: SessionCreateRequest, db: AsyncSession = Depends(get_db)):
+async def create_session(
+    req: SessionCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     session = ExamSession(
         duration_seconds=req.duration_seconds,
         score=req.score,
         transcript=req.transcript,
         status=req.status,
         exam_part=req.exam_part,
+        user_id=current_user.id,
     )
     db.add(session)
     await db.commit()
@@ -285,8 +291,15 @@ async def create_session(req: SessionCreateRequest, db: AsyncSession = Depends(g
     return session
 
 @router.get("/sessions", response_model=List[SessionSchema])
-async def get_sessions(db: AsyncSession = Depends(get_db)):
-    stmt = select(ExamSession).order_by(ExamSession.date.desc())
+async def get_sessions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    stmt = (
+        select(ExamSession)
+        .where(ExamSession.user_id == current_user.id)
+        .order_by(ExamSession.date.desc())
+    )
     result = await db.execute(stmt)
     return result.scalars().all()
 

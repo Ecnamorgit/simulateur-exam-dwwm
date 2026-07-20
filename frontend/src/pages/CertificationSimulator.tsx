@@ -18,7 +18,9 @@ import DossierChecker from '../components/exam/DossierChecker';
 import KanbanBoard from '../components/exam/KanbanBoard';
 import OwaspTab from '../components/exam/OwaspTab';
 import TabNav from '../components/exam/TabNav';
+import SimulatorHeader from '../components/exam/SimulatorHeader';
 import ExamOverview from '../components/exam/ExamOverview';
+import { useAuth } from '../hooks/useAuth';
 import EntretienTechnique from '../components/exam/EntretienTechnique';
 import QuestionnairePro from '../components/exam/QuestionnairePro';
 import EntretienFinal from '../components/exam/EntretienFinal';
@@ -39,6 +41,7 @@ const CertificationSimulator: React.FC = () => {
     { id: '4', title: 'Mise en place du workflow CI/CD (DevOps)', points: 3, status: 'backlog' },
   ]);
 
+  const auth = useAuth();
   const { transcript, isListening, hasSupport, startListening, stopListening, clearTranscript } = useSpeechRecognition();
 
   const timer = useExamTimer(35 * 60);
@@ -114,13 +117,7 @@ const CertificationSimulator: React.FC = () => {
 
   return (
     <div className="simulator-page">
-      <header className="hero-section">
-        <h1 className="hero-brand">Anything</h1>
-        <h2 className="hero-headline">Simulateur de Certification</h2>
-        <p className="hero-subtext">
-          daylight reverie: préparez méthodiquement votre épreuve de Titre Professionnel DWWM
-        </p>
-      </header>
+      <SimulatorHeader auth={auth} />
 
       {/* Navigation tabs */}
       <TabNav
@@ -139,7 +136,7 @@ const CertificationSimulator: React.FC = () => {
 
       {/* Déroulé de l'épreuve (page d'accueil) */}
       {activeTab === 'epreuve' && (
-        <ExamOverview onStartPart={startExamPart} onStartExamBlanc={startExamBlanc} />
+        <ExamOverview onStartPart={startExamPart} onStartExamBlanc={startExamBlanc} authKey={auth.email ?? ''} />
       )}
 
       {/* Oral & QCM tab */}
