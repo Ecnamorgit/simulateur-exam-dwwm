@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base, relationship
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey, Table, select
 from datetime import datetime, timezone
 
 from app.core.config import settings
@@ -16,6 +16,16 @@ async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncS
 
 Base = declarative_base()
 
+# Table d'association N:N entre users et badges. La clé primaire composite
+# (user_id, badge_id) garantit l'intégrité : un utilisateur ne peut obtenir
+# deux fois le même badge.
+user_badges = Table(
+    'user_badges', Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
+    Column('badge_id', Integer, ForeignKey('badges.id', ondelete='CASCADE'), primary_key=True),
+    Column('awarded_at', DateTime, default=_utcnow),
+)
+
 class User(Base):
     __tablename__ = 'users'
 
@@ -25,6 +35,17 @@ class User(Base):
     created_at = Column(DateTime, default=_utcnow)
 
     exam_sessions = relationship("ExamSession", back_populates="user")
+    badges = relationship("Badge", secondary=user_badges, back_populates="users")
+
+class Badge(Base):
+    __tablename__ = 'badges'
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True, nullable=False)
+    label = Column(String, nullable=False)
+    description = Column(Text)
+
+    users = relationship("User", secondary=user_badges, back_populates="badges")
 
 class ExamSession(Base):
     __tablename__ = 'exam_sessions'
@@ -69,11 +90,31 @@ class GeneratedQuestion(Base):
 
     exam_session = relationship("ExamSession", back_populates="generated_questions")
 
+# Badges de compétences validables (compétences du référentiel DWWM).
+_SEED_BADGES = [
+    ("front-end", "Front-end (AT1)", "Compétences de développement front-end validées."),
+    ("back-end", "Back-end (AT2)", "Compétences de développement back-end validées."),
+    ("anglais", "Anglais technique", "Compréhension de documentation technique en anglais (B1)."),
+    ("examen-blanc", "Examen blanc réussi", "Examen blanc complet réussi avec un score satisfaisant."),
+]
+
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # Micro-migrations : ajoute les colonnes récentes aux bases existantes.
         await conn.run_sync(_ensure_columns)
+    await _seed_badges()
+
+
+async def _seed_badges():
+    """Insère les badges de référence si la table est vide."""
+    async with async_session() as db:
+        existing = (await db.execute(select(Badge))).scalars().first()
+        if existing:
+            return
+        db.add_all([Badge(code=c, label=l, description=d) for c, l, d in _SEED_BADGES])
+        await db.commit()
 
 
 def _ensure_columns(conn):

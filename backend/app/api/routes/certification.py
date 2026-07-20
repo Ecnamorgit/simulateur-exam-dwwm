@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.sqlite import get_db, ExamSession, CriteriaResult, GeneratedQuestion, User
 from app.api.routes.auth import get_current_user
+from app.api.routes.badges import award_badge
 from app.services.speech_fallback import transcribe_audio_fallback
 from app.services.question_generator import generate_questions_from_text
 from app.services.document_parser import extract_text
@@ -288,6 +289,11 @@ async def create_session(
     db.add(session)
     await db.commit()
     await db.refresh(session)
+
+    # Auto-attribution du badge examen blanc si le bilan est satisfaisant (>= 70/100).
+    if req.exam_part == "examen-blanc" and (req.score or 0) >= 70:
+        await award_badge(db, current_user.id, "examen-blanc")
+
     return session
 
 @router.get("/sessions", response_model=List[SessionSchema])

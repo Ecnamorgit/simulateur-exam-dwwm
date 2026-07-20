@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Play, Clock, History } from 'lucide-react';
+import { Play, Clock, History, Award } from 'lucide-react';
 import { EXAM_PARTS, TOTAL_EXAM_MINUTES, ExamPartId } from '../../data/examParts';
-import { getSessions } from '../../services/api';
+import { getSessions, getMyBadges } from '../../services/api';
 
 interface Props {
   onStartPart: (id: ExamPartId) => void;
@@ -12,11 +12,14 @@ interface Props {
 /** Écran d'accueil : présente le déroulé officiel des 4 épreuves (2 h 00). */
 const ExamOverview: React.FC<Props> = ({ onStartPart, onStartExamBlanc, authKey }) => {
   const [history, setHistory] = useState<any[]>([]);
+  const [badges, setBadges] = useState<any[]>([]);
 
   useEffect(() => {
     getSessions()
       .then((all) => setHistory(all.filter((s) => s.exam_part === 'examen-blanc')))
       .catch(() => setHistory([]));
+    if (authKey) getMyBadges().then(setBadges).catch(() => setBadges([]));
+    else setBadges([]);
   }, [authKey]);
 
   return (
@@ -55,6 +58,17 @@ const ExamOverview: React.FC<Props> = ({ onStartPart, onStartExamBlanc, authKey 
         </div>
       ))}
     </div>
+
+    {badges.length > 0 && (
+      <div className="card-soft" style={{ maxWidth: '820px', margin: '24px auto 0' }}>
+        <h4 className="report-section-title"><Award size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Badges de compétences obtenus</h4>
+        <div className="badges-strip">
+          {badges.map((b) => (
+            <span key={b.code} className="badge-chip" title={b.description}>🏅 {b.label}</span>
+          ))}
+        </div>
+      </div>
+    )}
 
     {history.length > 0 && (
       <div className="card-soft" style={{ maxWidth: '820px', margin: '24px auto 0' }}>
