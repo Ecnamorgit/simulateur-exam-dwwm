@@ -167,6 +167,8 @@ const CertificationSimulator: React.FC = () => {
               evaluatingSoutenance={soutenance.evaluatingSoutenance}
               soutenanceReport={soutenance.soutenanceReport}
               accumulatedTranscript={soutenance.accumulatedTranscript}
+              manualTranscript={soutenance.manualTranscript}
+              setManualTranscript={soutenance.setManualTranscript}
               handleStartSoutenanceClick={soutenance.handleStartSoutenanceClick}
               confirmStartSoutenance={soutenance.confirmStartSoutenance}
               submitSoutenancePresentation={soutenance.submitSoutenancePresentation}
@@ -237,6 +239,7 @@ const CertificationSimulator: React.FC = () => {
           selectedFile={dossier.selectedFile}
           analyzing={dossier.analyzing}
           analysisResult={dossier.analysisResult}
+          error={dossier.error}
           handleFileChange={dossier.handleFileChange}
         />
       )}

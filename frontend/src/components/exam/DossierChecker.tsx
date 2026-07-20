@@ -7,11 +7,12 @@ interface Props {
   selectedFile: File | null;
   analyzing: boolean;
   analysisResult: AnalysisResult | null;
+  error?: string;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 /** Onglet « Validation de Dossier » : upload + analyse de conformité. */
-const DossierChecker: React.FC<Props> = ({ selectedFile, analyzing, analysisResult, handleFileChange }) => (
+const DossierChecker: React.FC<Props> = ({ selectedFile, analyzing, analysisResult, error, handleFileChange }) => (
   <section className="tab-content fade-in">
     <div className="card-soft upload-card">
       <h3 className="card-title">Analyseur de Conformité du Dossier de Projet</h3>
@@ -35,6 +36,13 @@ const DossierChecker: React.FC<Props> = ({ selectedFile, analyzing, analysisResu
         <div className="analyzing-status">
           <div className="spinner"></div>
           <p>Analyse et génération de questions sur-mesure via IA locale...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="warning-box" style={{ marginTop: '16px' }}>
+          <AlertTriangle size={18} className="warn-icon" />
+          <span>{error}</span>
         </div>
       )}
 
