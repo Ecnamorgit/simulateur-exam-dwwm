@@ -65,6 +65,9 @@ Détails et variables d'environnement : [`docs/deploiement.md`](docs/deploiement
 - **Python** ≥ 3.10 (développé sous 3.12), **Node.js** ≥ 18 et **npm**
 - (Optionnel) une **clé API Google Gemini** : https://aistudio.google.com/apikey — sans clé valide, l'app bascule sur les repli hors-ligne.
 
+> 🤖 **Comment fonctionne l'IA ?** Providers (Gemini / Ollama / repli statique), suffisance du
+> free tier, voix de synthèse et configuration d'Ollama : voir [`docs/intelligence_artificielle.md`](docs/intelligence_artificielle.md).
+
 ### Backend
 ```bash
 cd backend

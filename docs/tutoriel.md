@@ -174,6 +174,9 @@ GEMINI_API_KEY=AQ.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 > ⚠️ Ne définissez **pas** `GEMINI_API_KEY` comme variable d'environnement système : elle
 > aurait priorité sur le `.env` et pourrait masquer votre bonne clé (voir [Dépannage](#10-dépannage)).
 
+**Pour aller plus loin** (Gemini seul suffit-il ? le free tier suffit-il pour un examen complet ?
+voix de synthèse, alternative locale **Ollama**...) : voir [`intelligence_artificielle.md`](intelligence_artificielle.md).
+
 ---
 
 ## 7. Utiliser l'application

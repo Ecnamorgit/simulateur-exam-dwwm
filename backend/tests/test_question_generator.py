@@ -2,6 +2,7 @@
 
 import pytest
 
+import app.services.question_generator as qg
 from app.services.question_generator import _parse_questions, DEFAULT_QUESTIONS
 
 
@@ -35,3 +36,26 @@ def test_parse_questions_rejects_incomplete():
 def test_parse_questions_rejects_empty():
     with pytest.raises(ValueError):
         _parse_questions('[]')
+
+
+async def test_generate_uses_gemini_first(monkeypatch):
+    monkeypatch.setattr(qg.settings, 'GEMINI_API_KEY', 'fake-key')
+
+    async def fake_gemini(text):
+        return [{'type': 'jury', 'question_text': 'via-gemini', 'correct_answer': 'a', 'explanation': 'e', 'category': 'X'}]
+
+    monkeypatch.setattr(qg, '_call_gemini', fake_gemini)
+    result = await qg.generate_questions_from_text('description projet')
+    assert result[0]['question_text'] == 'via-gemini'
+
+
+async def test_generate_falls_back_to_local_bank(monkeypatch):
+    # Pas de clé Gemini + Ollama injoignable -> banque locale.
+    monkeypatch.setattr(qg.settings, 'GEMINI_API_KEY', '')
+
+    async def boom(text):
+        raise RuntimeError('ollama down')
+
+    monkeypatch.setattr(qg, '_call_ollama', boom)
+    result = await qg.generate_questions_from_text('description projet')
+    assert result is DEFAULT_QUESTIONS

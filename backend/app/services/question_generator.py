@@ -2,8 +2,13 @@ import json
 
 import httpx
 
-# Timeout large pour laisser le temps au modèle local de générer 10 questions.
+from app.core.config import settings
+
+# Timeouts : Gemini (cloud) plus court, Ollama (modèle local) plus long.
+_GEMINI_TIMEOUT = httpx.Timeout(45.0, connect=10.0)
 _OLLAMA_TIMEOUT = httpx.Timeout(45.0, connect=10.0)
+_OLLAMA_URL = "http://localhost:11434/api/chat"
+_OLLAMA_MODEL = "qwen2.5-coder:14b"
 
 # ---------------------------------------------------------------------------
 # Fallback questions when generator fails or Ollama is offline
@@ -484,49 +489,59 @@ DEFAULT_QUESTIONS = [
 ]
 
 
-async def _call_ollama(text: str) -> list:
-    url = "http://localhost:11434/api/chat"
-    model = "qwen2.5-coder:14b"
+_SYSTEM_PROMPT = (
+    "Vous êtes un examinateur expert pour le Titre Professionnel Développeur Web et Web Mobile (RNCP 37674). "
+    "Vous devez analyser le texte fourni décrivant le projet d'un candidat et générer un JSON valide. "
+    "Le JSON doit être une liste contenant exactement 10 questions adaptées à la stack technique et au métier décrit.\n"
+    "Générez :\n"
+    "- 5 questions de type 'qcm' (QCM écrit) avec les champs : 'type': 'qcm', 'category' (domaine technique parmi : "
+    "HTML/CSS/Responsive, JavaScript/DOM, React/Frameworks, UX/UI/Maquettage, Accessibilité, BDD/SQL/Modélisation, "
+    "API REST/Back-end, Auth/Sécurité, OWASP/Sécurité Web, RGPD/CNIL, DevOps/CI-CD, Agilité/Scrum, Tests, "
+    "Veille Technologique), 'question_text' (la question), 'choices' (liste de 4 propositions), "
+    "'correct_answer' (la proposition exacte correcte), 'explanation' (explication didactique).\n"
+    "- 5 questions de type 'jury' (questions ouvertes) avec les champs : 'type': 'jury', 'category' (même liste de domaines), "
+    "'question_text' (la question), 'correct_answer' (mots-clés principaux attendus), 'explanation' (explication de la réponse idéale).\n"
+    "Variez les catégories pour couvrir un maximum de domaines différents.\n"
+    "Ne retournez RIEN d'autre que le JSON valide. Pas de texte explicatif autour, pas de formatage en dehors du JSON brut."
+)
 
-    # Prompt optimized to get clean JSON structure matching our needs
-    system_prompt = (
-        "Vous êtes un examinateur expert pour le Titre Professionnel Développeur Web et Web Mobile (RNCP 37674). "
-        "Vous devez analyser le texte fourni décrivant le projet d'un candidat et générer un JSON valide. "
-        "Le JSON doit être une liste contenant exactement 10 questions adaptées à la stack technique et au métier décrit.\n"
-        "Générez :\n"
-        "- 5 questions de type 'qcm' (QCM écrit) avec les champs : 'type': 'qcm', 'category' (domaine technique parmi : "
-        "HTML/CSS/Responsive, JavaScript/DOM, React/Frameworks, UX/UI/Maquettage, Accessibilité, BDD/SQL/Modélisation, "
-        "API REST/Back-end, Auth/Sécurité, OWASP/Sécurité Web, RGPD/CNIL, DevOps/CI-CD, Agilité/Scrum, Tests, "
-        "Veille Technologique), 'question_text' (la question), 'choices' (liste de 4 propositions), "
-        "'correct_answer' (la proposition exacte correcte), 'explanation' (explication didactique).\n"
-        "- 5 questions de type 'jury' (questions ouvertes) avec les champs : 'type': 'jury', 'category' (même liste de domaines), "
-        "'question_text' (la question), 'correct_answer' (mots-clés principaux attendus), 'explanation' (explication de la réponse idéale).\n"
-        "Variez les catégories pour couvrir un maximum de domaines différents.\n"
-        "Ne retournez RIEN d'autre que le JSON valide. Pas de texte explicatif autour, pas de formatage en dehors du JSON brut."
-    )
 
-    user_prompt = f"Voici la description du projet du candidat :\n\n{text[:4000]}"
+def _user_prompt(text: str) -> str:
+    return f"Voici la description du projet du candidat :\n\n{text[:4000]}"
 
+
+async def _call_gemini(text: str) -> list:
+    api_key = settings.GEMINI_API_KEY
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY not set")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent"
     data = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "stream": False
+        "contents": [{"parts": [{"text": _SYSTEM_PROMPT + "\n\n" + _user_prompt(text)}]}],
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048},
     }
+    async with httpx.AsyncClient(timeout=_GEMINI_TIMEOUT) as client:
+        r = await client.post(url, json=data, headers={"Content-Type": "application/json", "x-goog-api-key": api_key})
+        r.raise_for_status()
+        res = r.json()
+    content = res["candidates"][0]["content"]["parts"][0]["text"].strip()
+    return _parse_questions(content)
 
-    try:
-        async with httpx.AsyncClient(timeout=_OLLAMA_TIMEOUT) as client:
-            response = await client.post(url, json=data)
-            response.raise_for_status()
-            res_data = response.json()
-        content = res_data["message"]["content"].strip()
-        return _parse_questions(content)
-    except Exception as e:
-        print(f"Error generating questions via local Ollama: {e}")
-        # Return default fallback questions
-        return DEFAULT_QUESTIONS
+
+async def _call_ollama(text: str) -> list:
+    data = {
+        "model": _OLLAMA_MODEL,
+        "messages": [
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": _user_prompt(text)},
+        ],
+        "stream": False,
+    }
+    async with httpx.AsyncClient(timeout=_OLLAMA_TIMEOUT) as client:
+        response = await client.post(_OLLAMA_URL, json=data)
+        response.raise_for_status()
+        res_data = response.json()
+    content = res_data["message"]["content"].strip()
+    return _parse_questions(content)
 
 
 def _parse_questions(content: str) -> list:
@@ -562,4 +577,14 @@ def _parse_questions(content: str) -> list:
 
 
 async def generate_questions_from_text(text: str) -> list[dict]:
-    return await _call_ollama(text)
+    """Génère des questions à partir du dossier : Gemini -> Ollama -> banque locale."""
+    if settings.GEMINI_API_KEY:
+        try:
+            return await _call_gemini(text)
+        except Exception as e:
+            print(f"[question_generator] Gemini failed: {e}")
+    try:
+        return await _call_ollama(text)
+    except Exception as e:
+        print(f"[question_generator] Ollama failed: {e}")
+    return DEFAULT_QUESTIONS
