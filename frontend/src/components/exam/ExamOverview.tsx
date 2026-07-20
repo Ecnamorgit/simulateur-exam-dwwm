@@ -1,6 +1,7 @@
-import React from 'react';
-import { Play, Clock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Play, Clock, History } from 'lucide-react';
 import { EXAM_PARTS, TOTAL_EXAM_MINUTES, ExamPartId } from '../../data/examParts';
+import { getSessions } from '../../services/api';
 
 interface Props {
   onStartPart: (id: ExamPartId) => void;
@@ -8,7 +9,16 @@ interface Props {
 }
 
 /** Écran d'accueil : présente le déroulé officiel des 4 épreuves (2 h 00). */
-const ExamOverview: React.FC<Props> = ({ onStartPart, onStartExamBlanc }) => (
+const ExamOverview: React.FC<Props> = ({ onStartPart, onStartExamBlanc }) => {
+  const [history, setHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    getSessions()
+      .then((all) => setHistory(all.filter((s) => s.exam_part === 'examen-blanc')))
+      .catch(() => setHistory([]));
+  }, []);
+
+  return (
   <section className="tab-content fade-in">
     <div className="card-soft page-intro-card">
       <h3 className="card-title">Déroulé officiel de l'épreuve (2 h 00)</h3>
@@ -44,7 +54,24 @@ const ExamOverview: React.FC<Props> = ({ onStartPart, onStartExamBlanc }) => (
         </div>
       ))}
     </div>
+
+    {history.length > 0 && (
+      <div className="card-soft" style={{ maxWidth: '820px', margin: '24px auto 0' }}>
+        <h4 className="report-section-title"><History size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Historique des examens blancs</h4>
+        <div className="report-phases-list">
+          {history.map((s) => (
+            <div key={s.id} className="report-phase-row valid">
+              <span className="phase-row-name">
+                {s.date ? new Date(s.date).toLocaleDateString('fr-FR') : 'Session'} — {s.transcript}
+              </span>
+              <span className="phase-row-feedback">{s.score}/100</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
   </section>
-);
+  );
+};
 
 export default ExamOverview;

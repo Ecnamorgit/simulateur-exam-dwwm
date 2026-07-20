@@ -92,6 +92,7 @@ class SessionSchema(BaseModel):
     score: Optional[int] = None
     transcript: Optional[str] = None
     status: Optional[str] = None
+    exam_part: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class TranscriptionResponse(BaseModel):
@@ -135,6 +136,7 @@ class SessionCreateRequest(BaseModel):
     score: int
     transcript: str
     status: str
+    exam_part: Optional[str] = None
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
@@ -274,36 +276,19 @@ async def create_session(req: SessionCreateRequest, db: AsyncSession = Depends(g
         duration_seconds=req.duration_seconds,
         score=req.score,
         transcript=req.transcript,
-        status=req.status
+        status=req.status,
+        exam_part=req.exam_part,
     )
     db.add(session)
     await db.commit()
     await db.refresh(session)
-    return {
-        "id": session.id,
-        "date": session.date,
-        "duration_seconds": session.duration_seconds,
-        "score": session.score,
-        "transcript": session.transcript,
-        "status": session.status
-    }
+    return session
 
 @router.get("/sessions", response_model=List[SessionSchema])
 async def get_sessions(db: AsyncSession = Depends(get_db)):
     stmt = select(ExamSession).order_by(ExamSession.date.desc())
     result = await db.execute(stmt)
-    sessions = result.scalars().all()
-    return [
-        {
-            "id": s.id,
-            "date": s.date,
-            "duration_seconds": s.duration_seconds,
-            "score": s.score,
-            "transcript": s.transcript,
-            "status": s.status
-        }
-        for s in sessions
-    ]
+    return result.scalars().all()
 
 
 # ---------------------------------------------------------------------------

@@ -48,6 +48,30 @@ export async function evaluateSoutenance(payload: SoutenanceEvalPayload): Promis
   return res.json();
 }
 
+/** Enregistre une session d'examen (ex. bilan d'examen blanc) en base. */
+export async function createSession(payload: {
+  duration_seconds: number;
+  score: number;
+  transcript: string;
+  status: string;
+  exam_part?: string;
+}): Promise<any> {
+  const res = await fetch(`${BASE}/sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Impossible d'enregistrer la session.");
+  return res.json();
+}
+
+/** Récupère l'historique des sessions enregistrées. */
+export async function getSessions(): Promise<any[]> {
+  const res = await fetch(`${BASE}/sessions`);
+  if (!res.ok) throw new Error("Impossible de charger l'historique.");
+  return res.json();
+}
+
 /** URL de synthèse vocale (TTS) pour un texte donné. */
 export function ttsUrl(text: string): string {
   return `${BASE}/tts?text=${encodeURIComponent(text)}`;

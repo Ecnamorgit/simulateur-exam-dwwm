@@ -25,6 +25,9 @@ class ExamSession(Base):
     score = Column(Integer)
     transcript = Column(Text)
     status = Column(String)
+    # Partie de l'épreuve concernée (soutenance, entretien-technique, questionnaire,
+    # entretien-final, ou "examen-blanc" pour le bilan global). Null pour les anciennes lignes.
+    exam_part = Column(String, nullable=True, index=True)
 
     criteria_results = relationship("CriteriaResult", back_populates="exam_session", cascade="all, delete-orphan")
     generated_questions = relationship("GeneratedQuestion", back_populates="exam_session", cascade="all, delete-orphan")
@@ -56,6 +59,17 @@ class GeneratedQuestion(Base):
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Micro-migration : ajoute la colonne exam_part si une base existante
+        # (créée avant l'ajout du champ) ne l'a pas encore.
+        await conn.run_sync(_ensure_exam_part_column)
+
+
+def _ensure_exam_part_column(conn):
+    from sqlalchemy import text
+    cols = conn.execute(text("PRAGMA table_info(exam_sessions)")).fetchall()
+    names = {c[1] for c in cols}
+    if "exam_part" not in names:
+        conn.execute(text("ALTER TABLE exam_sessions ADD COLUMN exam_part VARCHAR"))
 
 async def get_db():
     async with async_session() as session:
