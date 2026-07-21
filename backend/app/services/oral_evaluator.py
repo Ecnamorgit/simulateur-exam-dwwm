@@ -36,14 +36,16 @@ async def _call_gemini(question: str, user_answer: str, context: list[dict] | No
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
     system_prompt = (
-        "Vous êtes un examinateur du Titre Professionnel Développeur Web et Web Mobile (RNCP 37674). "
+        "Vous êtes un examinateur EXIGEANT ET SANS COMPLAISANCE du Titre Professionnel Développeur Web et Web Mobile (RNCP 37674). "
         "Vous menez un entretien technique oral avec un candidat.\n\n"
-        "VOTRE RÔLE :\n"
+        "RÈGLES D'ÉVALUATION STRICТES :\n"
         "1. Évaluer la réponse du candidat à la question posée.\n"
-        "2. Identifier les mots-clés techniques corrects utilisés et ceux qui manquent.\n"
-        "3. Donner un score de 0 à 10.\n"
-        "4. Fournir un feedback constructif et bienveillant (2-3 phrases max).\n"
-        "5. Poser une question de relance pertinente (approfondir le sujet ou passer au suivant si score >= 7).\n\n"
+        "2. Si la réponse est absurde, hors-sujet, répétitive (ex: répétition de mots incohérents) ou dépourvue de contenu technique, "
+        "attribuez IMPÉRATIVEMENT un score de 0 ou 1 sur 10.\n"
+        "3. Ne donnez un score >= 7 sur 10 QUE si le candidat utilise un vocabulaire technique exact et explique clairement son raisonnement.\n"
+        "4. Identifier les mots-clés techniques corrects utilisés et ceux qui manquent.\n"
+        "5. Fournir un feedback franc, constructif et professionnel (2-3 phrases max).\n"
+        "6. Poser une question de relance pertinente.\n\n"
         "RETOURNEZ UNIQUEMENT un JSON valide avec cette structure exacte :\n"
         '{"score": <int 0-10>, "detected_keywords": [<mots-clés trouvés>], '
         '"missing_keywords": [<mots-clés manquants importants>], '
@@ -181,8 +183,11 @@ def _parse_evaluation(content: str) -> dict:
 
 def _fallback_evaluation(question: str, user_answer: str) -> dict:
     """Simple keyword-based evaluation when both LLMs are unavailable."""
-    # Extract simple keywords from the question for basic matching
     answer_lower = user_answer.lower()
+    words = answer_lower.split()
+    word_count = len(words)
+    unique_words = len(set(words))
+    unique_ratio = unique_words / max(1, word_count)
     
     # Common technical keywords that would be relevant
     tech_keywords = [
@@ -201,19 +206,21 @@ def _fallback_evaluation(question: str, user_answer: str) -> dict:
     ]
 
     detected = [kw for kw in tech_keywords if kw in answer_lower]
-    word_count = len(user_answer.split())
     
-    # Score based on keywords found and answer length
-    score = min(10, len(detected) * 2 + (1 if word_count > 20 else 0) + (1 if word_count > 50 else 0))
+    # Strict score calculation
+    if len(detected) == 0 or (word_count > 5 and unique_ratio < 0.4):
+        score = 0 if word_count < 10 or unique_ratio < 0.3 else 1
+    else:
+        score = min(10, len(detected) * 2 + (1 if word_count > 20 else 0))
 
     return {
         "score": score,
         "detected_keywords": detected[:8],
-        "missing_keywords": [],
-        "feedback": f"Réponse analysée en mode hors-ligne. {len(detected)} termes techniques détectés. "
-                    f"{'Essayez de développer davantage.' if word_count < 30 else 'Bonne longueur de réponse.'}",
-        "follow_up_question": "",
-        "is_follow_up": False
+        "missing_keywords": ["vocabulaire_technique_dwwm"] if not detected else [],
+        "feedback": f"Réponse analysée (mode hors-ligne). {len(detected)} terme(s) technique(s) identifié(s). "
+                    f"{'Attention : réponse sans substance technique ou répétitive.' if score <= 1 else 'Bonne utilisation des notions.'}",
+        "follow_up_question": "Pouvez-vous développer les aspects techniques et l'architecture de votre solution ?" if score <= 2 else "",
+        "is_follow_up": score <= 2
     }
 
 
@@ -262,12 +269,13 @@ async def _call_gemini_soutenance(transcript: str, dossier_text: str = "", prese
 
     system_prompt = (
         "Vous êtes le président du jury d'examen du Titre Professionnel Développeur Web et Web Mobile (RNCP 37674). "
-        "Vous devez évaluer la présentation orale (soutenance de 35 minutes) réalisée par le candidat.\n\n"
-        "Analysez CONJOINTEMENT trois sources qui doivent être cohérentes entre elles :\n"
-        "  1) La transcription orale du candidat,\n"
-        "  2) Le contenu de son Dossier de Projet (écrits),\n"
-        "  3) Le contenu de son support de présentation (slides PowerPoint / PDF).\n"
-        "Vérifiez la cohérence entre les slides annoncées et le discours oral, et l'adéquation entre le dossier et la démonstration.\n\n"
+        "Vous êtes un jury EXIGEANT, RIGOUREUX et SANS COMPLAISANCE. Vous devez évaluer la présentation orale (soutenance de 35 minutes) réalisée par le candidat.\n\n"
+        "DIRECTIVES STRICTES D'ÉVALUATION ET DE BAREME :\n"
+        "1. DISCOURS ABSURDE / RÉPÉTITION / SANS SUBSTANCE : Si la transcription contient des mots répétés (ex: 'neige soleil neige soleil'), du texte absurde, hors-sujet ou dépourvu de contenu technique (API, BDD, SQL, React, Git, Docker, UX/UI, Securité...), "
+        "attribuez IMPÉRATIVEMENT un score global (overall_score) et un score technique (technical_depth_score) entre 0 et 20 sur 100.\n"
+        "2. GESTION DU TEMPS : La soutenance officielle dure 35 minutes. Si la durée réelle est inférieure à 10 minutes (< 600 secondes), le time_management_score NE PEUT PAS dépasser 30/100.\n"
+        "3. COHÉRENCE : Analysez conjointement l'oral, le Dossier de Projet et les slides. Sanctionnez sévèrement toute incohérence ou improvisation.\n"
+        "4. EXIGENCES : Une note >= 70/100 est réservée exclusivement aux prestations professionnelles et techniquement abouties.\n\n"
         "VOTRE ÉVALUATION DOIT RETOURNER UNIQUEMENT UN JSON VALIDE avec la structure suivante :\n"
         "{\n"
         '  "overall_score": <int 0-100>,\n'
@@ -423,19 +431,74 @@ def _normalize_soutenance(parsed: dict) -> dict:
 
 
 def _fallback_soutenance(transcript: str, dossier_text: str = "", presentation_text: str = "", duration_seconds: int = 0) -> dict:
-    word_count = len(transcript.split())
+    words = [w.lower() for w in transcript.split()]
+    word_count = len(words)
+    unique_words = len(set(words))
+    unique_ratio = unique_words / max(1, word_count)
     has_dossier = len(dossier_text) > 50
 
-    base_score = 65
-    if word_count > 100: base_score += 10
-    if word_count > 300: base_score += 10
-    if has_dossier: base_score += 10
+    # Tech keywords detection
+    tech_keywords = [
+        "react", "vue", "angular", "fastapi", "express", "sql", "bdd", "database",
+        "api", "rest", "cors", "jwt", "bcrypt", "html", "css", "wireframe", "maquette",
+        "docker", "git", "scrum", "agile", "securit", "owasp", "test", "figma"
+    ]
+    detected_tech = [k for k in tech_keywords if k in transcript.lower()]
+
+    # Detect gibberish or extreme repetition (e.g. "neige soleil") or short duration
+    is_gibberish = (word_count > 10 and unique_ratio < 0.35) or (word_count < 30 and len(detected_tech) == 0)
+
+    if is_gibberish or word_count < 15:
+        return {
+            "overall_score": 15,
+            "time_management_score": 20 if duration_seconds < 600 else 40,
+            "technical_depth_score": 10,
+            "clarity_score": 15,
+            "phases_covered": [
+                {"phase": "Introduction & Contexte", "detected": False, "feedback": "Contenu insuffisant ou non-sensique."},
+                {"phase": "Conception UX/UI & Wireframes", "detected": False, "feedback": "Non abordé."},
+                {"phase": "Démonstration de l'Application", "detected": False, "feedback": "Aucune démonstration technique identifiée."},
+                {"phase": "Architecture, Code & BDD", "detected": False, "feedback": "Aucun vocabulaire technique détecté."},
+                {"phase": "Sécurité, DevOps & Bilan", "detected": False, "feedback": "Non abordé."},
+            ],
+            "strengths": [
+                "Système d'enregistrement audio fonctionnel",
+            ],
+            "areas_for_improvement": [
+                "Le discours est dépourvu de substance technique (absence de mots-clés du Titre DWWM)",
+                "La durée et le vocabulaire sont insuffisants pour une soutenance de 35 minutes",
+                "Structurer l'oral selon le déroulé officiel (Intro, UI, Démo, Code/BDD, Bilan)",
+            ],
+            "custom_jury_questions": [
+                {
+                    "question_text": "Pouvez-vous réellement présenter l'architecture technique de votre projet DWWM ?",
+                    "category": "Architecture",
+                    "context_reason": "Discours oral incomplet ou non technique."
+                },
+                {
+                    "question_text": "Quelles sont les technologies principales utilisées dans votre application web ?",
+                    "category": "Technologie",
+                    "context_reason": "Aucune technologie mentionnée clairement."
+                },
+                {
+                    "question_text": "Comment est structurée votre base de données SQL / NoSQL ?",
+                    "category": "BDD",
+                    "context_reason": "Question de rattrapage."
+                }
+            ]
+        }
+
+    base_score = 45
+    if len(detected_tech) >= 2: base_score += 15
+    if len(detected_tech) >= 5: base_score += 15
+    if duration_seconds >= 900: base_score += 10
+    if has_dossier: base_score += 5
 
     return {
-        "overall_score": min(95, base_score),
-        "time_management_score": 80 if duration_seconds > 600 else 60,
-        "technical_depth_score": 75 if "react" in transcript.lower() or "api" in transcript.lower() else 60,
-        "clarity_score": 75,
+        "overall_score": min(85, base_score),
+        "time_management_score": 85 if duration_seconds >= 1200 else (60 if duration_seconds >= 600 else 35),
+        "technical_depth_score": 75 if len(detected_tech) >= 4 else 50,
+        "clarity_score": 70 if unique_ratio > 0.5 else 45,
         "phases_covered": [
             {"phase": "Introduction & Contexte", "detected": True, "feedback": "Présentation entamée."},
             {"phase": "Conception UX/UI & Wireframes", "detected": "maquette" in transcript.lower() or "figma" in transcript.lower(), "feedback": "Mention des choix UI."},
@@ -444,20 +507,20 @@ def _fallback_soutenance(transcript: str, dossier_text: str = "", presentation_t
             {"phase": "Sécurité, DevOps & Bilan", "detected": "securit" in transcript.lower() or "docker" in transcript.lower(), "feedback": "Perspectives et bilan."}
         ],
         "strengths": [
-            "Présentation orale fluide et compréhensible",
-            "Couverture globale des fonctionnalités du projet",
-            "Dossier joint analysé avec succès" if has_dossier else "Utilisation d'un vocabulaire technique approprié"
+            "Présentation orale enregistrée et analysée",
+            f"Termes techniques DWWM identifiés ({', '.join(detected_tech[:4]) or 'aucun'})",
+            "Dossier de projet associé" if has_dossier else "Format respecté"
         ],
         "areas_for_improvement": [
-            "Préciser l'architecture de la base de données (MCD/MLD)",
-            "Développer les choix de sécurité (CORS, Bcrypt, OWASP)",
-            "Mieux structurer la conclusion et le bilan personnel"
+            "Approfondir les choix d'architecture (MCD/MLD, schémas API)",
+            "Détailler les aspects sécurité (JWT, Bcrypt, OWASP, HTTPS)",
+            "Optimiser la gestion du temps pour atteindre les 35 minutes réglementaires"
         ],
         "custom_jury_questions": [
             {
                 "question_text": "Pouvez-vous expliciter la structure de votre base de données et comment vous assurez l'intégrité référentielle ?",
                 "category": "BDD/SQL/Modélisation",
-                "context_reason": "Question classique du jury sur la partie back-end."
+                "context_reason": "Question du jury sur la partie back-end."
             },
             {
                 "question_text": "Comment avez-vous sécurisé les échanges entre votre front-end et votre API backend ?",
