@@ -15,6 +15,7 @@ import json
 import httpx
 
 from app.core.config import settings
+from app.services.dwwm_referentiel import DWWM_REAC_PROMPT
 
 _GEMINI_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
@@ -31,11 +32,15 @@ FINAL_QUESTIONS: list[str] = [
 
 
 def _fallback_final_eval(answer: str) -> dict:
-    words = answer.split()
+    words = [w.lower() for w in answer.split()]
     wc = len(words)
-    if wc == 0:
-        return {"score": 0, "feedback": "Aucune réponse fournie."}
-    score = min(10, 4 + wc // 15)
+    unique_words = len(set(words))
+    unique_ratio = unique_words / max(1, wc)
+
+    if wc == 0 or (wc > 5 and unique_ratio < 0.35):
+        return {"score": 0, "feedback": "Réponse absurde, répétitive ou inexistante. Score : 0/10."}
+    
+    score = min(10, 2 + wc // 15)
     if wc < 15:
         feedback = "Réponse un peu courte : développez votre propos et illustrez par un exemple concret."
     else:
@@ -50,10 +55,13 @@ async def _call_gemini_final(question: str, answer: str) -> dict:
         raise ValueError("GEMINI_API_KEY not set")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent"
     prompt = (
-        "Vous êtes un membre du jury DWWM lors de l'entretien final (non technique). "
-        "Évaluez le SAVOIR-ÊTRE et la CLARTÉ de la réponse du candidat (posture professionnelle, "
-        "communication), sans juger de technique. Retournez UNIQUEMENT un JSON : "
-        '{"score": <int 0-10>, "feedback": "<feedback bienveillant en francais, 2-3 phrases>"}\n\n'
+        "Vous êtes un membre du jury DWWM lors de l'entretien final (non technique).\n"
+        f"{DWWM_REAC_PROMPT}\n\n"
+        "RÈGLES D'ÉVALUATION :\n"
+        "Évaluez le SAVOIR-ÊTRE et la CLARTÉ de la réponse du candidat.\n"
+        "Si la réponse est absurde, hors-sujet ou répétitive (ex: 'neige soleil'), attribuez IMPÉRATIVEMENT un score de 0 sur 10.\n\n"
+        "Retournez UNIQUEMENT un JSON : "
+        '{"score": <int 0-10>, "feedback": "<feedback franc et professionnel, 2-3 phrases>"}\n\n'
         f"Question : {question}\n\nRéponse du candidat : {answer}"
     )
     data = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.5, "maxOutputTokens": 400}}

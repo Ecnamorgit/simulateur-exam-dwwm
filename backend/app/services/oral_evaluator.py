@@ -15,6 +15,7 @@ import re
 import httpx
 
 from app.core.config import settings
+from app.services.dwwm_referentiel import DWWM_REAC_PROMPT
 
 # Timeouts (en secondes) : connexion courte, lecture plus longue pour laisser
 # le temps au LLM de générer sa réponse.
@@ -36,16 +37,15 @@ async def _call_gemini(question: str, user_answer: str, context: list[dict] | No
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
     system_prompt = (
-        "Vous êtes un examinateur EXIGEANT ET SANS COMPLAISANCE du Titre Professionnel Développeur Web et Web Mobile (RNCP 37674). "
-        "Vous menez un entretien technique oral avec un candidat.\n\n"
-        "RÈGLES D'ÉVALUATION STRICТES :\n"
-        "1. Évaluer la réponse du candidat à la question posée.\n"
-        "2. Si la réponse est absurde, hors-sujet, répétitive (ex: répétition de mots incohérents) ou dépourvue de contenu technique, "
-        "attribuez IMPÉRATIVEMENT un score de 0 ou 1 sur 10.\n"
-        "3. Ne donnez un score >= 7 sur 10 QUE si le candidat utilise un vocabulaire technique exact et explique clairement son raisonnement.\n"
-        "4. Identifier les mots-clés techniques corrects utilisés et ceux qui manquent.\n"
-        "5. Fournir un feedback franc, constructif et professionnel (2-3 phrases max).\n"
-        "6. Poser une question de relance pertinente.\n\n"
+        "Vous êtes un examinateur EXIGEANT ET SANS COMPLAISANCE du Titre Professionnel Développeur Web et Web Mobile (RNCP 37674).\n"
+        f"{DWWM_REAC_PROMPT}\n\n"
+        "RÈGLES STRICTES D'ÉVALUATION :\n"
+        "1. Si la réponse est absurde, répétitive (ex: répétition de mots incohérents comme 'neige soleil') ou dépourvue de tout contenu technique, "
+        "attribuez IMPÉRATIVEMENT un score de 0 sur 10 (score = 0).\n"
+        "2. Ne donnez un score >= 7 sur 10 QUE si le candidat utilise un vocabulaire technique exact du référentiel DWWM.\n"
+        "3. Identifier les mots-clés techniques corrects utilisés et ceux qui manquent.\n"
+        "4. Fournir un feedback franc, constructif et professionnel (2-3 phrases max).\n"
+        "5. Poser une question de relance pertinente.\n\n"
         "RETOURNEZ UNIQUEMENT un JSON valide avec cette structure exacte :\n"
         '{"score": <int 0-10>, "detected_keywords": [<mots-clés trouvés>], '
         '"missing_keywords": [<mots-clés manquants importants>], '
@@ -269,11 +269,12 @@ async def _call_gemini_soutenance(transcript: str, dossier_text: str = "", prese
 
     system_prompt = (
         "Vous êtes le président du jury d'examen du Titre Professionnel Développeur Web et Web Mobile (RNCP 37674). "
-        "Vous êtes un jury EXIGEANT, RIGOUREUX et SANS COMPLAISANCE. Vous devez évaluer la présentation orale (soutenance de 35 minutes) réalisée par le candidat.\n\n"
+        "Vous êtes un jury EXIGEANT, RIGOUREUX et SANS COMPLAISANCE.\n"
+        f"{DWWM_REAC_PROMPT}\n\n"
         "DIRECTIVES STRICTES D'ÉVALUATION ET DE BAREME :\n"
-        "1. DISCOURS ABSURDE / RÉPÉTITION / SANS SUBSTANCE : Si la transcription contient des mots répétés (ex: 'neige soleil neige soleil'), du texte absurde, hors-sujet ou dépourvu de contenu technique (API, BDD, SQL, React, Git, Docker, UX/UI, Securité...), "
-        "attribuez IMPÉRATIVEMENT un score global (overall_score) et un score technique (technical_depth_score) entre 0 et 20 sur 100.\n"
-        "2. GESTION DU TEMPS : La soutenance officielle dure 35 minutes. Si la durée réelle est inférieure à 10 minutes (< 600 secondes), le time_management_score NE PEUT PAS dépasser 30/100.\n"
+        "1. DISCOURS ABSURDE / RÉPÉTITION / SANS SUBSTANCE (ex: 'neige soleil') : Si la transcription contient des mots répétés, du texte absurde, hors-sujet ou dépourvu de contenu technique du référentiel DWWM (C1 à C8), "
+        "attribuez IMPÉRATIVEMENT 0 sur 100 à overall_score, 0 à technical_depth_score, 0 à clarity_score et 0 à time_management_score.\n"
+        "2. GESTION DU TEMPS : La soutenance officielle dure 35 minutes (~2100 s). Si la durée réelle est inférieure à 5 minutes (< 300 secondes), time_management_score = 0 et overall_score <= 10.\n"
         "3. COHÉRENCE : Analysez conjointement l'oral, le Dossier de Projet et les slides. Sanctionnez sévèrement toute incohérence ou improvisation.\n"
         "4. EXIGENCES : Une note >= 70/100 est réservée exclusivement aux prestations professionnelles et techniquement abouties.\n\n"
         "VOTRE ÉVALUATION DOIT RETOURNER UNIQUEMENT UN JSON VALIDE avec la structure suivante :\n"
@@ -391,7 +392,7 @@ def _normalize_soutenance(parsed: dict) -> dict:
     if not isinstance(parsed, dict):
         parsed = {}
 
-    def _score(value, default: int = 60) -> int:
+    def _score(value, default: int = 0) -> int:
         try:
             return max(0, min(100, int(value)))
         except (TypeError, ValueError):
@@ -450,10 +451,10 @@ def _fallback_soutenance(transcript: str, dossier_text: str = "", presentation_t
 
     if is_gibberish or word_count < 15:
         return {
-            "overall_score": 15,
-            "time_management_score": 20 if duration_seconds < 600 else 40,
-            "technical_depth_score": 10,
-            "clarity_score": 15,
+            "overall_score": 0,
+            "time_management_score": 0,
+            "technical_depth_score": 0,
+            "clarity_score": 0,
             "phases_covered": [
                 {"phase": "Introduction & Contexte", "detected": False, "feedback": "Contenu insuffisant ou non-sensique."},
                 {"phase": "Conception UX/UI & Wireframes", "detected": False, "feedback": "Non abordé."},
