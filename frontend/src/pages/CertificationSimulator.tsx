@@ -54,7 +54,7 @@ const CertificationSimulator: React.FC<CertificationSimulatorProps> = ({ auth })
   const interactive = useInteractiveExam({ questions, speak, transcript, clearTranscript });
   const soutenance = useSoutenance({
     speak, transcript, clearTranscript, isListening, hasSupport, startListening, stopListening,
-    selectedFile: dossier.selectedFile, setQuestions, timer,
+    selectedFile: dossier.selectedFile, dossierText: dossier.dossierText, setQuestions, timer,
   });
 
   const moveTask = (id: string, direction: 'forward' | 'backward') => {
@@ -187,6 +187,12 @@ const CertificationSimulator: React.FC<CertificationSimulatorProps> = ({ auth })
               clearTranscript={clearTranscript}
               selectedFile={dossier.selectedFile}
               handleFileChange={dossier.handleFileChange}
+              presentationFile={soutenance.presentationFile}
+              handlePresentationFileChange={soutenance.handlePresentationFileChange}
+              openPresentationWindow={soutenance.openPresentationWindow}
+              closePresentationWindow={soutenance.closePresentationWindow}
+              presentationPanelOpen={soutenance.presentationPanelOpen}
+              soutenanceError={soutenance.soutenanceError}
               questions={questions}
               juryQuestions={juryQuestions}
               selectedCategory={qcm.selectedCategory}

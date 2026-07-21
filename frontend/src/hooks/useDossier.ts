@@ -13,6 +13,9 @@ export function useDossier({ onQuestionsLoaded, onReset }: UseDossierOptions) {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState('');
+  // Texte brut extrait du dossier — renvoyé à /soutenance-evaluate pour que
+  // le jury évalue le contenu réel (et pas seulement le nom du fichier).
+  const [dossierText, setDossierText] = useState<string>('');
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -21,10 +24,12 @@ export function useDossier({ onQuestionsLoaded, onReset }: UseDossierOptions) {
       setAnalyzing(true);
       setAnalysisResult(null);
       setError('');
+      setDossierText('');
 
       try {
         const data = await uploadDossier(file);
         setAnalysisResult({ score: data.score, criteria: data.criteria });
+        if (typeof data.dossier_text === 'string') setDossierText(data.dossier_text);
         if (data.questions && data.questions.length > 0) {
           onQuestionsLoaded(data.questions);
         }
@@ -40,5 +45,5 @@ export function useDossier({ onQuestionsLoaded, onReset }: UseDossierOptions) {
     }
   };
 
-  return { selectedFile, setSelectedFile, analyzing, analysisResult, error, handleFileChange };
+  return { selectedFile, setSelectedFile, analyzing, analysisResult, error, handleFileChange, dossierText };
 }

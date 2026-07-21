@@ -1,9 +1,10 @@
 import React from 'react';
 import {
   Play, Pause, RotateCcw, Mic, MicOff, AlertTriangle, Filter,
-  CheckCircle2, XCircle, Sparkles,
+  CheckCircle2, XCircle, Sparkles, Presentation,
 } from 'lucide-react';
 import SoutenanceModal from './SoutenanceModal';
+import PresentationPanel from './PresentationPanel';
 import { formatTime } from '../../hooks/useExamTimer';
 import { Question, SoutenanceReport } from '../../types/exam';
 
@@ -35,6 +36,13 @@ interface Props {
   // Dossier
   selectedFile: File | null;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  // Support de présentation (PPTX/PDF/images) affiché dans un panneau flottant
+  presentationFile: File | null;
+  handlePresentationFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  openPresentationWindow: () => void;
+  closePresentationWindow: () => void;
+  presentationPanelOpen: boolean;
+  soutenanceError: string | null;
   // Jury questions
   questions: Question[];
   juryQuestions: Question[];
@@ -66,12 +74,22 @@ const JuryMode: React.FC<Props> = (p) => {
 
   return (
     <>
+      {p.presentationPanelOpen && p.presentationFile && (
+        <PresentationPanel file={p.presentationFile} onClose={p.closePresentationWindow} />
+      )}
+
       {p.showSoutenanceModal && (
         <SoutenanceModal
           selectedFile={p.selectedFile}
+          presentationFile={p.presentationFile}
           onClose={() => p.setShowSoutenanceModal(false)}
           onConfirm={p.confirmStartSoutenance}
-          onFileSelected={(e) => { p.handleFileChange(e); p.startSoutenanceNow(); }}
+          onFileSelected={(e) => {
+            p.handleFileChange(e);
+            p.setShowSoutenanceModal(false);
+            p.startSoutenanceNow();
+          }}
+          onPresentationSelected={p.handlePresentationFileChange}
         />
       )}
 
@@ -90,6 +108,12 @@ const JuryMode: React.FC<Props> = (p) => {
               <RotateCcw size={16} style={{ marginRight: '8px' }} />
               Réinitialiser
             </button>
+            {p.presentationFile && (
+              <button className="btn-outline-pill" onClick={p.openPresentationWindow} title="Rouvrir la fenêtre de présentation">
+                <Presentation size={16} style={{ marginRight: '8px' }} />
+                Rouvrir mes slides
+              </button>
+            )}
           </div>
 
           <div className="oral-phases">
@@ -170,6 +194,13 @@ const JuryMode: React.FC<Props> = (p) => {
         <div className="card-soft loading-card" style={{ marginTop: '24px' }}>
           <div className="spinner"></div>
           <p style={{ marginTop: '12px', fontWeight: 600 }}>Le Jury IA évalue votre présentation orale...</p>
+        </div>
+      )}
+
+      {p.soutenanceError && !p.evaluatingSoutenance && (
+        <div className="card-soft warning-box" style={{ marginTop: '24px' }}>
+          <AlertTriangle size={18} className="warn-icon" />
+          <span>{p.soutenanceError}</span>
         </div>
       )}
 

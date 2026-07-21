@@ -1,0 +1,86 @@
+/* Panneau flottant affichant les slides de la présentation pendant la soutenance. */
+.pres-panel {
+  position: fixed;
+  z-index: 9999;
+  background: #0f1115;
+  color: #f4f4f5;
+  border: 1px solid #2a2f3a;
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 320px;
+  min-height: 240px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.pres-panel.minimized { height: auto !important; min-height: 0; }
+.pres-panel.minimized .pres-body,
+.pres-panel.minimized .pres-footer { display: none; }
+
+.pres-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #1a1d24;
+  border-bottom: 1px solid #2a2f3a;
+  cursor: move;
+  user-select: none;
+}
+.pres-header-title { font-size: 13px; font-weight: 600; }
+.pres-header-file { font-size: 12px; color: #a1a1aa;
+  max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pres-header-spacer { flex: 1; }
+.pres-header button {
+  background: transparent; color: #f4f4f5; border: none;
+  cursor: pointer; padding: 4px 6px; border-radius: 4px; font-size: 12px;
+}
+.pres-header button:hover { background: #2a2f3a; }
+
+.pres-body {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: #05060a; overflow: auto;
+}
+.pres-body .pres-empty {
+  text-align: center; color: #a1a1aa; font-size: 13px;
+}
+.pres-body .pres-loading { color: #a1a1aa; font-size: 13px; }
+.pres-body .pres-error { color: #fca5a5; text-align: center; font-size: 13px; padding: 20px; }
+
+.pres-body canvas,
+.pres-body img { max-width: 100%; max-height: 100%; border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+
+.pres-slide-txt {
+  background: white; color: #111; width: 100%; max-height: 100%;
+  padding: 24px; border-radius: 6px; overflow: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.pres-slide-txt h2 { margin-top: 4px; font-size: 20px; }
+.pres-slide-txt p { font-size: 14px; margin: 8px 0; }
+.pres-slide-txt img { max-width: 100%; margin: 8px 0; box-shadow: none; }
+.pres-slide-badge { font-size: 11px; color: #666; margin-bottom: 6px; }
+.pres-slide-empty { color: #888; font-style: italic; }
+
+.pres-footer {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; background: #1a1d24;
+  border-top: 1px solid #2a2f3a;
+}
+.pres-footer button {
+  background: #2a2f3a; color: #f4f4f5; border: 1px solid #2a2f3a;
+  padding: 5px 10px; border-radius: 5px; font-size: 12px; cursor: pointer;
+}
+.pres-footer button:hover:not(:disabled) { background: #3a4050; }
+.pres-footer button:disabled { opacity: 0.4; cursor: not-allowed; }
+.pres-footer .counter { color: #a1a1aa; font-size: 12px; min-width: 60px; text-align: center; }
+.pres-footer .spacer { flex: 1; }
+
+.pres-resize {
+  position: absolute; right: 0; bottom: 0; width: 16px; height: 16px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, #6ee7b7 50%);
+  border-bottom-right-radius: 10px;
+  opacity: 0.6;
+}
+.pres-resize:hover { opacity: 1; }

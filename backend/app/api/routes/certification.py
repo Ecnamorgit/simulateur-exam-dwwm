@@ -85,6 +85,9 @@ class UploadResponse(BaseModel):
     score: int
     criteria: List[CriteriaResultSchema]
     questions: List[QuestionContentSchema]
+    # Texte brut extrait du dossier — renvoyé au frontend pour être réinjecté
+    # dans /soutenance-evaluate afin que le jury évalue vraiment le contenu.
+    dossier_text: Optional[str] = ""
 
 class SessionSchema(BaseModel):
     id: int
@@ -238,7 +241,10 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
         "session_id": session.id,
         "score": score_calc,
         "criteria": results,
-        "questions": questions_response
+        "questions": questions_response,
+        # Tronqué à 8000 caractères — largement supérieur à ce que le prompt
+        # LLM utilisera (3000 max) mais limite la charge réseau.
+        "dossier_text": (extracted_text or "")[:8000],
     }
 
 @router.get("/sessions/{session_id}/questions", response_model=List[SessionQuestionSchema])
@@ -338,6 +344,7 @@ async def oral_config():
 class SoutenanceEvalRequest(BaseModel):
     transcript: str
     dossier_text: Optional[str] = ""
+    presentation_text: Optional[str] = ""
     duration_seconds: Optional[int] = 0
     provider: Optional[str] = "auto"
 
@@ -349,13 +356,52 @@ async def soutenance_evaluate(request: Request, req: SoutenanceEvalRequest):
     if not req.transcript or not req.transcript.strip():
         raise HTTPException(status_code=400, detail="La transcription de la présentation est vide.")
 
-    result = await evaluate_soutenance(
-        transcript=req.transcript,
-        dossier_text=req.dossier_text or "",
-        duration_seconds=req.duration_seconds or 0,
-        provider=req.provider or "auto"
-    )
-    return result
+    # Tronquer préventivement toutes les entrées : évite les timeouts LLM, les
+    # payloads trop lourds, et les réponses vides (ERR_CONNECTION_RESET côté
+    # client) quand un utilisateur envoie de très longues chaînes.
+    transcript = (req.transcript or "")[:8000]
+    dossier_text = (req.dossier_text or "")[:5000]
+    presentation_text = (req.presentation_text or "")[:5000]
+
+    try:
+        result = await evaluate_soutenance(
+            transcript=transcript,
+            dossier_text=dossier_text,
+            presentation_text=presentation_text,
+            duration_seconds=req.duration_seconds or 0,
+            provider=req.provider or "auto"
+        )
+        return result
+    except Exception as e:
+        # Filet de sécurité : renvoyer un résultat valide plutôt qu'un 500
+        # au body vide qui crashe le parser JSON côté frontend.
+        print(f"[soutenance-evaluate] fallback triggered: {e!r}")
+        return {
+            "overall_score": 60,
+            "time_management_score": 60,
+            "technical_depth_score": 60,
+            "clarity_score": 60,
+            "phases_covered": [
+                {"phase": "Introduction & Contexte", "detected": True, "feedback": "Présentation enregistrée."},
+                {"phase": "Conception UX/UI & Wireframes", "detected": False, "feedback": "Non évalué (IA indisponible)."},
+                {"phase": "Démonstration de l'Application", "detected": False, "feedback": "Non évalué (IA indisponible)."},
+                {"phase": "Architecture, Code & BDD", "detected": False, "feedback": "Non évalué (IA indisponible)."},
+                {"phase": "Sécurité, DevOps & Bilan", "detected": False, "feedback": "Non évalué (IA indisponible)."},
+            ],
+            "strengths": [
+                "Présentation orale enregistrée avec succès",
+                "Fichiers de contexte transmis au jury",
+            ],
+            "areas_for_improvement": [
+                "Le service d'évaluation IA n'a pas répondu — réessayez plus tard",
+                "Vérifiez la configuration du provider (GEMINI_API_KEY ou Ollama)",
+            ],
+            "custom_jury_questions": [
+                {"question_text": "Pouvez-vous expliciter votre architecture technique ?", "category": "Général", "context_reason": "Question de repli"},
+                {"question_text": "Quelles mesures de sécurité avez-vous mises en place ?", "category": "Sécurité", "context_reason": "Question de repli"},
+                {"question_text": "Comment avez-vous organisé votre travail en mode agile ?", "category": "Méthode", "context_reason": "Question de repli"},
+            ],
+        }
 
 
 @router.get("/tts")

@@ -252,7 +252,7 @@ async def evaluate_oral_answer(
 # Full Soutenance (35 min presentation) Evaluation
 # ---------------------------------------------------------------------------
 
-async def _call_gemini_soutenance(transcript: str, dossier_text: str = "", duration_seconds: int = 0) -> dict:
+async def _call_gemini_soutenance(transcript: str, dossier_text: str = "", presentation_text: str = "", duration_seconds: int = 0) -> dict:
     api_key = settings.GEMINI_API_KEY
     if not api_key:
         raise ValueError("GEMINI_API_KEY not set")
@@ -263,7 +263,11 @@ async def _call_gemini_soutenance(transcript: str, dossier_text: str = "", durat
     system_prompt = (
         "Vous êtes le président du jury d'examen du Titre Professionnel Développeur Web et Web Mobile (RNCP 37674). "
         "Vous devez évaluer la présentation orale (soutenance de 35 minutes) réalisée par le candidat.\n\n"
-        "Analysez la transcription de sa présentation orale ainsi que son dossier de projet (si fourni).\n\n"
+        "Analysez CONJOINTEMENT trois sources qui doivent être cohérentes entre elles :\n"
+        "  1) La transcription orale du candidat,\n"
+        "  2) Le contenu de son Dossier de Projet (écrits),\n"
+        "  3) Le contenu de son support de présentation (slides PowerPoint / PDF).\n"
+        "Vérifiez la cohérence entre les slides annoncées et le discours oral, et l'adéquation entre le dossier et la démonstration.\n\n"
         "VOTRE ÉVALUATION DOIT RETOURNER UNIQUEMENT UN JSON VALIDE avec la structure suivante :\n"
         "{\n"
         '  "overall_score": <int 0-100>,\n'
@@ -288,12 +292,21 @@ async def _call_gemini_soutenance(transcript: str, dossier_text: str = "", durat
         "RETOURNEZ UNIQUEMENT LE JSON SANS TEXTE AUTOUR."
     )
 
-    dossier_info = f"\n\nContenu du Dossier de Projet du candidat :\n{dossier_text[:3000]}" if dossier_text else "\n\n(Aucun dossier de projet n'a été fourni, évaluation basée uniquement sur l'oral)."
+    dossier_info = (
+        f"\n\nContenu du Dossier de Projet du candidat :\n{dossier_text[:3000]}"
+        if dossier_text else "\n\n(Aucun dossier de projet n'a été fourni.)"
+    )
+    presentation_info = (
+        f"\n\nContenu du support de présentation (slides) projeté pendant l'oral :\n{presentation_text[:3000]}"
+        if presentation_text else "\n\n(Aucun support de présentation n'a été fourni.)"
+    )
     user_prompt = (
         f"Durée réelle de la présentation : {duration_seconds // 60} minutes et {duration_seconds % 60} secondes.\n\n"
         f"Transcription de la présentation orale du candidat :\n\n{transcript[:6000]}"
-        f"{dossier_info}\n\n"
-        "Évaluez la soutenance et générez les 3 questions de jury personnalisées."
+        f"{dossier_info}"
+        f"{presentation_info}\n\n"
+        "Évaluez la soutenance en croisant les 3 sources, et générez 3 questions de jury personnalisées "
+        "qui exploitent la cohérence (ou les écarts) entre l'oral, le dossier et les slides."
     )
 
     data = {
@@ -313,7 +326,7 @@ async def _call_gemini_soutenance(transcript: str, dossier_text: str = "", durat
     return _parse_soutenance_json(content)
 
 
-async def _call_ollama_soutenance(transcript: str, dossier_text: str = "", duration_seconds: int = 0) -> dict:
+async def _call_ollama_soutenance(transcript: str, dossier_text: str = "", presentation_text: str = "", duration_seconds: int = 0) -> dict:
     url = "http://localhost:11434/api/chat"
     model = "qwen2.5-coder:14b"
 
@@ -325,7 +338,12 @@ async def _call_ollama_soutenance(transcript: str, dossier_text: str = "", durat
         '"custom_jury_questions": [{"question_text": "...", "category": "BDD", "context_reason": "..."}]}'
     )
 
-    user_prompt = f"Durée: {duration_seconds}s.\nOral: {transcript[:4000]}\nDossier: {dossier_text[:2000]}"
+    user_prompt = (
+        f"Durée: {duration_seconds}s.\n"
+        f"Oral: {transcript[:4000]}\n"
+        f"Dossier: {dossier_text[:2000]}\n"
+        f"Slides: {presentation_text[:2000]}"
+    )
 
     data = {
         "model": model,
@@ -404,7 +422,7 @@ def _normalize_soutenance(parsed: dict) -> dict:
     }
 
 
-def _fallback_soutenance(transcript: str, dossier_text: str = "", duration_seconds: int = 0) -> dict:
+def _fallback_soutenance(transcript: str, dossier_text: str = "", presentation_text: str = "", duration_seconds: int = 0) -> dict:
     word_count = len(transcript.split())
     has_dossier = len(dossier_text) > 50
 
@@ -458,20 +476,21 @@ def _fallback_soutenance(transcript: str, dossier_text: str = "", duration_secon
 async def evaluate_soutenance(
     transcript: str,
     dossier_text: str = "",
+    presentation_text: str = "",
     duration_seconds: int = 0,
     provider: str = "auto"
 ) -> dict:
     if provider == "gemini" or provider == "auto":
         try:
-            return await _call_gemini_soutenance(transcript, dossier_text, duration_seconds)
+            return await _call_gemini_soutenance(transcript, dossier_text, presentation_text, duration_seconds)
         except Exception as e:
             print(f"[oral_evaluator] Gemini soutenance failed: {e}")
 
     if provider == "ollama" or provider == "auto":
         try:
-            return await _call_ollama_soutenance(transcript, dossier_text, duration_seconds)
+            return await _call_ollama_soutenance(transcript, dossier_text, presentation_text, duration_seconds)
         except Exception as e:
             print(f"[oral_evaluator] Ollama soutenance failed: {e}")
 
-    return _fallback_soutenance(transcript, dossier_text, duration_seconds)
+    return _fallback_soutenance(transcript, dossier_text, presentation_text, duration_seconds)
 

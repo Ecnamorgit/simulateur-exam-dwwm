@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { evaluateSoutenance } from '../services/api';
 import { SoutenanceReport, Question } from '../types/exam';
+import { extractPresentationText } from '../utils/presentationLoader';
 
 interface Timer {
   timeLeft: number;
@@ -20,13 +21,15 @@ interface UseSoutenanceOptions {
   startListening: () => void;
   stopListening: () => void;
   selectedFile: File | null;
+  /** Texte brut extrait du dossier de projet (fourni par useDossier). */
+  dossierText?: string;
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   timer: Timer;
 }
 
 /** Logique de la soutenance orale de 35 minutes évaluée par le jury IA. */
 export function useSoutenance(opts: UseSoutenanceOptions) {
-  const { speak, transcript, clearTranscript, isListening, hasSupport, startListening, stopListening, selectedFile, setQuestions, timer } = opts;
+  const { speak, transcript, clearTranscript, isListening, hasSupport, startListening, stopListening, selectedFile, dossierText, setQuestions, timer } = opts;
 
   const [showSoutenanceModal, setShowSoutenanceModal] = useState(false);
   const [soutenanceStarted, setSoutenanceStarted] = useState(false);
@@ -35,6 +38,21 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
   const [accumulatedTranscript, setAccumulatedTranscript] = useState('');
   // Saisie clavier de repli quand la reconnaissance vocale n'est pas supportée.
   const [manualTranscript, setManualTranscript] = useState('');
+  const [soutenanceError, setSoutenanceError] = useState<string | null>(null);
+  // Fichier de présentation (PPTX / PDF / images) affiché dans un panneau flottant.
+  const [presentationFile, setPresentationFile] = useState<File | null>(null);
+  const [presentationPanelOpen, setPresentationPanelOpen] = useState(false);
+
+  const handlePresentationFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setPresentationFile(file);
+    if (file) setPresentationPanelOpen(true);
+  };
+
+  const openPresentationWindow = () => {
+    if (presentationFile) setPresentationPanelOpen(true);
+  };
+  const closePresentationWindow = () => setPresentationPanelOpen(false);
 
   // Accumulate speech transcript during soutenance
   useEffect(() => {
@@ -56,6 +74,8 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
     timer.setTimeLeft(35 * 60);
     timer.setTimerRunning(true);
     if (hasSupport) startListening();
+    // Ouvre automatiquement le panneau de présentation si un fichier a été chargé.
+    if (presentationFile) setPresentationPanelOpen(true);
     speak('Bonjour ! Le jury vous écoute. Vous avez 35 minutes pour présenter votre projet.');
   };
 
@@ -68,12 +88,17 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
   };
 
   const confirmStartSoutenance = (mode: 'dossier' | 'generic') => {
-    setShowSoutenanceModal(false);
+    // Cas « dossier demandé mais pas encore chargé » : on ouvre le sélecteur
+    // natif SANS fermer le modal (sinon React démonte l'<input file> avant
+    // que le navigateur puisse propager l'événement `change`, et l'utilisateur
+    // se retrouve sans dossier ni soutenance démarrée → boucle infinie).
+    // La fermeture et le démarrage seront faits dans onFileSelected.
     if (mode === 'dossier' && !selectedFile) {
       const uploadElem = document.getElementById('soutenance-file-upload');
       if (uploadElem) uploadElem.click();
       return;
     }
+    setShowSoutenanceModal(false);
     startSoutenanceNow();
   };
 
@@ -81,14 +106,38 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
     timer.setTimerRunning(false);
     if (isListening) stopListening();
     setEvaluatingSoutenance(true);
+    setSoutenanceError(null);
 
     const fullText = accumulatedTranscript || manualTranscript || transcript || "Présentation orale effectuée par l'étudiant.";
     const elapsedSecs = (35 * 60) - timer.timeLeft;
 
+    // Extraction du texte du support de présentation (PPTX / PDF) pour que
+    // l'IA puisse croiser slides + dossier + oral. Silencieux en cas d'échec
+    // pour ne pas bloquer l'évaluation. Tronqué à 5000 car. côté client aussi
+    // pour éviter les payloads massifs qui timeoutent le serveur.
+    let presentationText = '';
+    if (presentationFile) {
+      try {
+        const raw = await extractPresentationText(presentationFile);
+        presentationText = raw.slice(0, 5000);
+      } catch (e) {
+        console.warn('Extraction du texte de la présentation impossible :', e);
+      }
+    }
+
+    // Priorité au vrai contenu extrait du dossier ; fallback sur le nom de
+    // fichier si l'upload a échoué (mieux que rien pour le contexte LLM).
+    const dossierPayload = (dossierText && dossierText.trim().length > 0
+      ? dossierText
+      : (selectedFile ? `Fichier analysé : ${selectedFile.name}` : '')).slice(0, 5000);
+
+    const transcriptPayload = fullText.slice(0, 8000);
+
     try {
       const report = await evaluateSoutenance({
-        transcript: fullText,
-        dossier_text: selectedFile ? `Fichier analysé : ${selectedFile.name}` : '',
+        transcript: transcriptPayload,
+        dossier_text: dossierPayload,
+        presentation_text: presentationText,
         duration_seconds: elapsedSecs,
       });
       setSoutenanceReport(report);
@@ -105,8 +154,10 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
         }));
         setQuestions((prev) => [...newQuestions, ...prev]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Soutenance eval error:', err);
+      const msg = err?.message || "L'évaluation par le jury a échoué. Vérifiez que le backend est démarré, puis réessayez.";
+      setSoutenanceError(msg);
     } finally {
       setEvaluatingSoutenance(false);
     }
@@ -116,6 +167,7 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
     timer.resetTimer();
     setSoutenanceStarted(false);
     setSoutenanceReport(null);
+    setPresentationPanelOpen(false);
   };
 
   return {
@@ -132,5 +184,11 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
     startSoutenanceNow,
     submitSoutenancePresentation,
     resetSoutenance,
+    presentationFile,
+    handlePresentationFileChange,
+    openPresentationWindow,
+    closePresentationWindow,
+    presentationPanelOpen,
+    soutenanceError,
   };
 }

@@ -53,6 +53,7 @@ export interface OralEvalPayload {
 export interface SoutenanceEvalPayload {
   transcript: string;
   dossier_text?: string;
+  presentation_text?: string;
   duration_seconds?: number;
 }
 
@@ -84,6 +85,15 @@ export async function evaluateSoutenance(payload: SoutenanceEvalPayload): Promis
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+  if (!res.ok) {
+    // Corps HTTP potentiellement vide (500 sans body) : on lit en texte
+    // pour éviter le SyntaxError de .json() et remonter une vraie erreur.
+    const raw = await res.text().catch(() => '');
+    throw new Error(
+      `Le jury n'a pas pu évaluer votre présentation (HTTP ${res.status}). ` +
+      (raw ? `Détail : ${raw.slice(0, 200)}` : 'Réessayez dans quelques instants.')
+    );
+  }
   return res.json();
 }
 
