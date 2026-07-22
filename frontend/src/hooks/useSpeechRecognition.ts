@@ -42,6 +42,7 @@ const useSpeechRecognition = (): SpeechRecognitionHook => {
   const [isListening, setIsListening] = useState(false);
   const [hasSupport, setHasSupport] = useState<boolean>(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const shouldListenRef = useRef<boolean>(false);
 
   useEffect(() => {
     const SpeechRecognitionConstructor =
@@ -63,10 +64,19 @@ const useSpeechRecognition = (): SpeechRecognitionHook => {
 
       recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech Recognition Error:', event.error);
-        if (event.error === 'no-speech') return;
+        if (event.error === 'no-speech' || event.error === 'aborted') return;
       };
 
       recognitionInstance.onend = () => {
+        if (shouldListenRef.current) {
+          try {
+            recognitionInstance.start();
+            setIsListening(true);
+            return;
+          } catch (err) {
+            console.warn('Auto-restart of speech recognition failed:', err);
+          }
+        }
         setIsListening(false);
       };
 
@@ -77,6 +87,7 @@ const useSpeechRecognition = (): SpeechRecognitionHook => {
     }
 
     return () => {
+      shouldListenRef.current = false;
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
@@ -84,6 +95,7 @@ const useSpeechRecognition = (): SpeechRecognitionHook => {
   }, []);
 
   const startListening = () => {
+    shouldListenRef.current = true;
     if (recognitionRef.current && !isListening) {
       try {
         recognitionRef.current.start();
@@ -95,6 +107,7 @@ const useSpeechRecognition = (): SpeechRecognitionHook => {
   };
 
   const stopListening = () => {
+    shouldListenRef.current = false;
     if (recognitionRef.current && isListening) {
       try {
         recognitionRef.current.stop();

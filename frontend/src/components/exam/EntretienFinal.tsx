@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Play, Send } from 'lucide-react';
+import { Play, Send, Mic, MicOff } from 'lucide-react';
 import { useEntretienFinal } from '../../hooks/useEntretienFinal';
 import { useExamTimer, formatTime } from '../../hooks/useExamTimer';
 
@@ -7,16 +7,39 @@ interface Props {
   speak: (text: string) => void;
   onBack: () => void;
   onComplete?: (score: number) => void;
+  transcript?: string;
+  isListening?: boolean;
+  hasSupport?: boolean;
+  startListening?: () => void;
+  stopListening?: () => void;
+  clearTranscript?: () => void;
 }
 
 const DURATION = 15 * 60;
 
 /** Épreuve « Entretien final » (15 min) : échange non technique sur le profil pro. */
-const EntretienFinal: React.FC<Props> = ({ speak, onBack, onComplete }) => {
+const EntretienFinal: React.FC<Props> = ({
+  speak, onBack, onComplete,
+  transcript = '', isListening = false, hasSupport = false,
+  startListening, stopListening, clearTranscript,
+}) => {
   const ef = useEntretienFinal(speak);
   const timer = useExamTimer(DURATION);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const completedRef = useRef(false);
+
+  // Synchronisation du texte dicté à l'oral avec l'input de réponse
+  useEffect(() => {
+    if (transcript && isListening) {
+      ef.setInput(transcript);
+    }
+  }, [transcript, isListening]);
+
+  const handleSubmit = () => {
+    if (isListening) stopListening?.();
+    clearTranscript?.();
+    ef.submit();
+  };
 
   useEffect(() => {
     if (ef.started && !ef.complete) { timer.resetTimer(DURATION); timer.setTimerRunning(true); }
@@ -68,7 +91,7 @@ const EntretienFinal: React.FC<Props> = ({ speak, onBack, onComplete }) => {
             <div className="interactive-welcome-icon">🤝</div>
             <h3 className="card-title">Prêt·e pour l'entretien final ?</h3>
             <p className="card-subtitle">
-              Le jury va vous poser {6} questions orientées métier et savoir-être. Répondez avec sincérité et clarté.
+              Le jury va vous poser {6} questions orientées métier et savoir-être. Répondez avec sincérité et clarté à l'oral ou par écrit.
             </p>
             <button className="btn-dark-pill start-interview-btn" onClick={ef.start}>
               <Play size={16} style={{ marginRight: '8px' }} />
@@ -113,17 +136,25 @@ const EntretienFinal: React.FC<Props> = ({ speak, onBack, onComplete }) => {
             {!ef.complete && (
               <div className="chat-input-area">
                 <div className="chat-input-row">
+                  <button
+                    className={`mic-btn ${isListening ? 'active' : ''}`}
+                    onClick={isListening ? stopListening : startListening}
+                    disabled={!hasSupport || ef.isEvaluating}
+                    title={isListening ? 'Arrêter le micro' : 'Parler au micro'}
+                  >
+                    {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                  </button>
                   <input
                     type="text"
                     className="chat-text-input"
                     aria-label="Votre réponse"
-                    placeholder="Votre réponse..."
+                    placeholder="Répondez au micro ou saisissez votre texte..."
                     value={ef.input}
                     onChange={(e) => ef.setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && ef.submit()}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSubmit()}
                     disabled={ef.isEvaluating}
                   />
-                  <button className="send-btn" onClick={ef.submit} disabled={ef.isEvaluating || !ef.input.trim()}>
+                  <button className="send-btn" onClick={handleSubmit} disabled={ef.isEvaluating || !ef.input.trim()}>
                     <Send size={18} />
                   </button>
                 </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { evaluateSoutenance } from '../services/api';
 import { SoutenanceReport, Question } from '../types/exam';
 import { extractPresentationText } from '../utils/presentationLoader';
@@ -42,6 +42,7 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
   // Fichier de présentation (PPTX / PDF / images) affiché dans un panneau flottant.
   const [presentationFile, setPresentationFile] = useState<File | null>(null);
   const [presentationPanelOpen, setPresentationPanelOpen] = useState(false);
+  const lastTranscriptRef = useRef('');
 
   const handlePresentationFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -54,15 +55,19 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
   };
   const closePresentationWindow = () => setPresentationPanelOpen(false);
 
-  // Accumulate speech transcript during soutenance
+  // Accumulate speech transcript during soutenance seamlessly without dropping words
   useEffect(() => {
     if (soutenanceStarted && transcript) {
-      setAccumulatedTranscript((prev) => {
-        if (!prev.includes(transcript)) {
+      if (transcript !== lastTranscriptRef.current) {
+        setAccumulatedTranscript((prev) => {
+          if (lastTranscriptRef.current && transcript.startsWith(lastTranscriptRef.current)) {
+            const added = transcript.slice(lastTranscriptRef.current.length);
+            return prev + added;
+          }
           return prev ? `${prev} ${transcript}` : transcript;
-        }
-        return prev;
-      });
+        });
+        lastTranscriptRef.current = transcript;
+      }
     }
   }, [soutenanceStarted, transcript]);
 
@@ -70,6 +75,7 @@ export function useSoutenance(opts: UseSoutenanceOptions) {
     setSoutenanceStarted(true);
     setSoutenanceReport(null);
     setAccumulatedTranscript('');
+    lastTranscriptRef.current = '';
     clearTranscript();
     timer.setTimeLeft(35 * 60);
     timer.setTimerRunning(true);

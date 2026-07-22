@@ -278,6 +278,12 @@ const CertificationSimulator: React.FC<CertificationSimulatorProps> = ({ auth })
         <QuestionnairePro
           onBack={() => setActiveTab('epreuve')}
           onComplete={examBlanc.active ? (s) => handlePartComplete('questionnaire', s) : undefined}
+          transcript={transcript}
+          isListening={isListening}
+          hasSupport={hasSupport}
+          startListening={startListening}
+          stopListening={stopListening}
+          clearTranscript={clearTranscript}
         />
       )}
 
@@ -286,6 +292,12 @@ const CertificationSimulator: React.FC<CertificationSimulatorProps> = ({ auth })
           speak={speak}
           onBack={() => setActiveTab('epreuve')}
           onComplete={examBlanc.active ? (s) => handlePartComplete('entretien-final', s) : undefined}
+          transcript={transcript}
+          isListening={isListening}
+          hasSupport={hasSupport}
+          startListening={startListening}
+          stopListening={stopListening}
+          clearTranscript={clearTranscript}
         />
       )}
 

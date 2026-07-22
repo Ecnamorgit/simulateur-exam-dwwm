@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { CheckCircle2, XCircle, RefreshCw, Sparkles } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { CheckCircle2, XCircle, RefreshCw, Sparkles, Mic, MicOff } from 'lucide-react';
 import { useQuestionnaire } from '../../hooks/useQuestionnaire';
 import { useExamTimer, formatTime } from '../../hooks/useExamTimer';
 
@@ -7,15 +7,45 @@ interface Props {
   stack?: string;
   onBack: () => void;
   onComplete?: (score: number) => void;
+  transcript?: string;
+  isListening?: boolean;
+  hasSupport?: boolean;
+  startListening?: () => void;
+  stopListening?: () => void;
+  clearTranscript?: () => void;
 }
 
 const DURATION = 30 * 60;
 
 /** Épreuve « Questionnaire professionnel » (30 min) : doc EN + 2 QCU FR + 2 ouvertes EN. */
-const QuestionnairePro: React.FC<Props> = ({ stack = '', onBack, onComplete }) => {
+const QuestionnairePro: React.FC<Props> = ({
+  stack = '', onBack, onComplete,
+  transcript = '', isListening = false, hasSupport = false,
+  startListening, stopListening, clearTranscript,
+}) => {
   const q = useQuestionnaire();
   const timer = useExamTimer(DURATION);
   const completedRef = useRef(false);
+  const [activeOpenIdx, setActiveOpenIdx] = useState<number | null>(null);
+
+  // Synchronisation du texte dicté avec la question ouverte active
+  useEffect(() => {
+    if (activeOpenIdx !== null && transcript && isListening) {
+      q.setOpenAnswer(activeOpenIdx, transcript);
+    }
+  }, [transcript, activeOpenIdx, isListening]);
+
+  const toggleMic = (index: number) => {
+    if (isListening && activeOpenIdx === index) {
+      stopListening?.();
+      setActiveOpenIdx(null);
+    } else {
+      if (isListening) stopListening?.();
+      clearTranscript?.();
+      setActiveOpenIdx(index);
+      startListening?.();
+    }
+  };
 
   // Chargement initial du questionnaire.
   useEffect(() => { q.load(stack); /* eslint-disable-next-line */ }, []);
@@ -63,7 +93,7 @@ const QuestionnairePro: React.FC<Props> = ({ stack = '', onBack, onComplete }) =
         <h3 className="card-title">Questionnaire professionnel (30 min)</h3>
         <p className="card-subtitle">
           Étudiez la documentation technique en anglais, puis répondez : 2 questions fermées en français
-          et 2 questions ouvertes en anglais (réponse rédigée en anglais).
+          et 2 questions ouvertes en anglais (réponse dictée à l'oral ou rédigée en anglais).
         </p>
       </div>
 
@@ -103,14 +133,27 @@ const QuestionnairePro: React.FC<Props> = ({ stack = '', onBack, onComplete }) =
             </div>
           ))}
 
-          {/* 2 questions ouvertes en anglais */}
+          {/* 2 questions ouvertes en anglais avec micro */}
           {q.data.open_questions.map((oq, i) => (
             <div key={`o${i}`} className="card-soft">
-              <div className="qcm-question-text"><span className="qcm-number">Open {i + 1}.</span> {oq.question}</div>
+              <div className="qcm-question-text" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span><span className="qcm-number">Open {i + 1}.</span> {oq.question}</span>
+                {!q.result && (
+                  <button
+                    className={`mic-btn ${isListening && activeOpenIdx === i ? 'active' : ''}`}
+                    onClick={() => toggleMic(i)}
+                    disabled={!hasSupport}
+                    title={isListening && activeOpenIdx === i ? 'Arrêter la dictée' : 'Dicter votre réponse à l\'oral'}
+                    style={{ marginLeft: '12px' }}
+                  >
+                    {isListening && activeOpenIdx === i ? <MicOff size={16} /> : <Mic size={16} />}
+                  </button>
+                )}
+              </div>
               <textarea
                 className="open-answer-input"
                 aria-label={`Réponse à la question ouverte ${i + 1}`}
-                placeholder="Write your answer in English..."
+                placeholder="Write or dictate your answer in English..."
                 value={q.openAnswers[i] || ''}
                 onChange={(e) => q.setOpenAnswer(i, e.target.value)}
                 disabled={!!q.result}
