@@ -420,10 +420,10 @@ def _normalize_soutenance(parsed: dict) -> dict:
             })
 
     return {
-        "overall_score": _score(parsed.get("overall_score")),
-        "time_management_score": _score(parsed.get("time_management_score")),
-        "technical_depth_score": _score(parsed.get("technical_depth_score")),
-        "clarity_score": _score(parsed.get("clarity_score")),
+        "overall_score": _score(parsed.get("overall_score"), default=60),
+        "time_management_score": _score(parsed.get("time_management_score"), default=60),
+        "technical_depth_score": _score(parsed.get("technical_depth_score"), default=60),
+        "clarity_score": _score(parsed.get("clarity_score"), default=60),
         "phases_covered": phases,
         "strengths": _str_list(parsed.get("strengths")),
         "areas_for_improvement": _str_list(parsed.get("areas_for_improvement")),
